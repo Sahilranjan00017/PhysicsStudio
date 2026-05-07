@@ -27,84 +27,256 @@ Physics Simulation Studio follows the module map from the TechDoc and keeps the 
 The common data model is:
 
 - `id`: stable UUID used by persistence and wires.
-- `typeId`: registry key such as `ELEC_RES` or `MOT_BALL`.
+- `typeId`: registry key such as `Resistor` or `Ball`.
 - `displayName`: user-facing label like `R1`.
-- `properties`: editable configuration values.
+- `properties`: editable configuration values (QMap<QString, QVariant>).
 - `simState`: live values produced by solvers.
 - `pads`: connection endpoints for wires and domain links.
 - lock/destruction flags: used by classroom models and overload handling.
 
-Each domain hook is deliberately no-op in the base class:
+### BaseComponent Class Hierarchy
 
-- `stampMNA(double dt)`: electronics components contribute to circuit equations.
-- `stepMotion(MotionContext&, double dt)`: motion components apply forces or constraints.
-- `traceRays(RayContext&)`: optical components emit or transform rays.
-- `stepWave(WaveContext&, double dt)`: wave components update sources, boundaries, or media.
+```
+QGraphicsObject (Qt framework)
+└── BaseComponent (physics abstraction)
+    ├── Electronics Domain
+    │   ├── Resistor (fixed R)
+    │   ├── Capacitor (dynamic C)
+    │   ├── Inductor (dynamic L)
+    │   ├── VoltageSource (constraint)
+    │   ├── CurrentSource (source)
+    │   ├── Ammeter (measurement)
+    │   └── Voltmeter (measurement)
+    ├── Motion Domain
+    │   ├── Ball (rigid sphere)
+    │   ├── Block (rigid box)
+    │   ├── Spring (elastic link)
+    │   └── Hinge (joint)
+    ├── Optics Domain
+    │   ├── Mirror (reflection)
+    │   ├── Lens (refraction)
+    │   ├── Prism (dispersion)
+    │   └── Beamsplitter (transmission/reflection)
+    └── Wave Domain
+        ├── WaveSource (drives wave)
+        ├── WaveDetector (measures wave)
+        ├── WaveBoundary (reflection)
+        └── WaveMaterial (absorption/speed)
+```
 
-Example component behavior:
+### Virtual Method Pattern
+
+Each domain hook is deliberately no-op in the base class. Subclasses override only the methods relevant to their physics domain:
+
+- `stampMNA(double dt)`: electronics components contribute to circuit equations (MNA matrix).
+- `stepMotion(MotionContext&, double dt)`: motion components apply forces or constraints (RK4 integration).
+- `traceRays(RayContext&)`: optical components emit or transform rays (geometric ray tracing).
+- `stepWave(WaveContext&, double dt)`: wave components update sources, boundaries, or media (wave equation).
+
+### Component Examples
+
+**Resistor (Electronics Only)**
 
 ```cpp
-class ResistorComponent final : public BaseComponent {
+class Resistor final : public BaseComponent {
 public:
-    void stampMNA(double dt) override;
+    void stampMNA(double dt) override;  // Contributes to MNA matrix
+    
+    // Empty overrides for unused domains:
+    void stepMotion(MotionContext&, double) override {}
+    void traceRays(RayContext&) override {}
+    void stepWave(WaveContext&, double) override {}
 };
 ```
 
 A resistor will read `properties["resistance"]`, look up the electrical node IDs assigned to its two pads, and stamp conductance into the electronics matrix.
 
+**Ball (Motion Only)**
+
 ```cpp
-class BallComponent final : public BaseComponent {
+class Ball final : public BaseComponent {
 public:
-    void stepMotion(MotionContext& context, double dt) override;
+    void stepMotion(MotionContext& context, double dt) override;  // Integrates dynamics
+    
+    // Empty overrides for unused domains:
+    void stampMNA(double) override {}
+    void traceRays(RayContext&) override {}
+    void stepWave(WaveContext&, double) override {}
 };
 ```
 
-A ball will read mass, radius, position, velocity, and material settings, then let the motion solver integrate forces and collisions.
+A ball will read mass, radius, position, velocity, and material settings, then let the motion solver integrate forces and collisions using RK4 numerical integration.
+
+**Mirror (Optics Only)**
 
 ```cpp
-class MirrorComponent final : public BaseComponent {
+class Mirror final : public BaseComponent {
 public:
-    void traceRays(RayContext& context) override;
+    void traceRays(RayContext& context) override;  // Reflects rays
+    
+    // Empty overrides for unused domains:
+    void stampMNA(double) override {}
+    void stepMotion(MotionContext&, double) override {}
+    void stepWave(WaveContext&, double) override {}
 };
 ```
 
 A mirror will expose ray intersection geometry and reflection behavior inside an `OpticalSpace`.
 
+**WaveSource (Wave Only)**
+
 ```cpp
-class WaveSourceComponent final : public BaseComponent {
+class WaveSource final : public BaseComponent {
 public:
-    void stepWave(WaveContext& context, double dt) override;
+    void stepWave(WaveContext& context, double dt) override;  // Drives oscillation
+    
+    // Empty overrides for unused domains:
+    void stampMNA(double) override {}
+    void stepMotion(MotionContext&, double) override {}
+    void traceRays(RayContext&) override {}
 };
 ```
 
-A wave source will inject amplitude into a 1D or 2D wave grid each tick.
+A wave source will inject amplitude into a 1D or 2D wave grid each tick according to `properties["frequency"]` and `properties["amplitude"]`.
+
+### ConnectionPads
+
+Each component exposes connection points via `pads` (list of `ConnectionPad` structs):
+
+```cpp
+struct ConnectionPad {
+    QPointF localPos;           // Position relative to component
+    PadType type;               // Input / Output / Bidirectional
+    DomainType domain;          // Electrical / Mechanical / Optical / Wave
+    QString padId;              // Unique identifier
+    QList<Wire*> connectedWires;// Attached connections
+    bool highlighted;           // UI state
+};
+```
+
+- **Electrical pads** connect via wires (share node voltage)
+- **Mechanical pads** connect via springs/hinges (shared positions)
+- **Optical pads** define ray entry/exit points
+- **Wave pads** define propagation boundaries
+
+### Serialization
+
+All components inherit JSON serialization:
+
+```cpp
+virtual QJsonObject toJson() const;        // Save to JSON
+virtual void fromJson(const QJsonObject&); // Load from JSON
+```
+
+`ProjectDocument` uses these methods to persist component trees with all properties and positions.
 
 ## Solver Architecture
 
-All solvers share an explicit interface in `src/simulation/SolverInterfaces.h`. The main simulation loop should not know solver internals; it should collect domain containers from the scene and call the proper solver.
+All solvers are independent and decoupled. Each operates on its own domain container and updates only its components. Multiple domains can coexist in the same scene without interaction (until multi-domain features like piezoelectric effects are added in later phases).
 
-Current planned interfaces:
+### Domain-Specific Solvers
 
-- `IElectronicsSolver::solve(ElectronicsDomain&, double dt)`
-- `IMotionSolver::step(MotionDomain&, double dt)`
-- `IOpticsSolver::trace(OpticalDomain&)`
-- `IWaveSolver::step(WaveDomain&, double dt)`
+All solvers share an explicit interface in `src/simulation/SolverInterfaces.h`. The simulation loop should not know solver internals; it should collect domain containers from the scene and call the proper solver at each time step.
 
-Electronics will use Modified Nodal Analysis. The expected shape is:
+Solver interfaces:
 
-1. Build or reuse a `CircuitGraph` from electrical pads and wires.
-2. Assign node IDs, including ground.
-3. Allocate MNA matrix and right-hand side vector.
-4. Ask each electronics component to stamp its contribution.
-5. Solve the matrix.
-6. Write node voltages and branch currents back into component `simState`.
-7. Run overload detection.
+- `IElectronicsSolver::solve(ElectronicsDomain&, double dt)` — Solves circuit equations via MNA
+- `IMotionSolver::step(MotionDomain&, double dt)` — Integrates rigid body dynamics via RK4
+- `IOpticsSolver::trace(OpticalDomain&)` — Traces rays through optical geometry
+- `IWaveSolver::step(WaveDomain&, double dt)` — Steps wave equation on grids
 
-Motion, optics, and waves follow the same orchestration pattern but with domain-specific containers:
+### SimulationLoop Execution Pattern
 
-- Motion: collect bodies, forces, constraints, collisions.
-- Optics: trace dirty optical spaces only when geometry changes.
-- Waves: step active wave grids every frame.
+The `SimulationLoop` class drives all solvers at 60 FPS:
+
+```cpp
+SimulationLoop (QObject):
+  timer.setInterval(16);           // 16ms = 60 FPS
+  
+  On tick():
+    if (running):
+      dt = 0.016 * speedMultiplier
+      
+      electronics_solver.solve(domain, dt)
+      motion_solver.step(domain, dt)
+      optics_solver.trace(domain)
+      wave_solver.step(domain, dt)
+      
+      canvas.update()
+      emit tickComplete(simulationTime)
+```
+
+Execution order:
+1. **Electronics** first — produces voltages and currents used by other domains
+2. **Motion** second — applies electromagnetic forces, integrates positions
+3. **Optics** third — traces rays through updated geometry
+4. **Waves** last — updates wave fields (may be affected by motion)
+
+### Electronics Solver: Modified Nodal Analysis (MNA)
+
+Electronics uses **Modified Nodal Analysis** to solve the circuit:
+
+1. Build a node list from electrical pads and wires across all components
+2. Assign node indices (0, 1, 2, ..., n-1)
+3. Allocate G matrix (n×n) and I vector (n)
+4. For each electronic component, call `component->stampMNA(dt)`:
+   - **Resistor**: Stamps conductance into G[i][j]
+   - **VoltageSource**: Adds constraint equation (row in augmented matrix)
+   - **CurrentSource**: Stamps current into I vector
+   - **Capacitor**: Uses companion model (dynamic element via RK4)
+5. Solve: **V = G^(-1) * I**
+6. Update component `simState` with node voltages and wire currents
+
+Electronics uses **Eigen3** library for dense matrix operations.
+
+### Motion Solver: Runge-Kutta 4 (RK4) Integration
+
+Motion uses numerical integration to advance rigid body dynamics:
+
+1. Collect all bodies (components with `stepMotion()`)
+2. Calculate total forces:
+   - Gravity: F_g = mass * gravity vector
+   - Springs: F_s = -k * (displacement) - d * (velocity)
+   - Collisions: F_c = contact forces (impulse-based)
+3. For each body, run RK4 integration step with acceleration = F/m:
+   - Advances velocity and position by dt
+   - Preserves energy and momentum
+4. Check collisions and apply constraint forces
+5. Update component positions on canvas
+
+Motion tracks `simState["position"]`, `simState["velocity"]`, `simState["angularVelocity"]`.
+
+### Optics Solver: Geometric Ray Tracing
+
+Optics traces rays through optical elements:
+
+1. For each active ray:
+   - Track position and direction through space
+   - Check intersection with optical surfaces
+   - For each intersection, call `component->traceRays(context)`:
+     - **Mirror**: Reflects ray (inverts normal component)
+     - **Lens**: Refracts ray (applies Snell's law)
+     - **Prism**: Refracts with wavelength-dependent refraction index
+2. Accumulate ray contributions to optical targets
+3. Display traced rays as visual feedback
+
+Optics is purely geometric (no equations to solve).
+
+### Wave Solver: Finite Difference Time Domain (FDTD)
+
+Wave solves the discrete wave equation on a 1D or 2D grid:
+
+1. Allocate field grid (complex values for amplitude + phase)
+2. For each time step:
+   - Apply finite differences to interior points: u_new = 2u - u_old + c²*dt² * laplacian(u)
+   - Apply boundary conditions (walls, absorbers, materials)
+   - Call `component->stepWave(context, dt)`:
+     - **WaveSource**: Injects amplitude at source position
+     - **WaveBoundary**: Applies reflection/absorption
+     - **WaveMaterial**: Modifies wave speed
+3. Display field as heatmap or contour plot
+
+Wave uses compact storage (only current + previous frame).
 
 ## Undo/Redo System
 

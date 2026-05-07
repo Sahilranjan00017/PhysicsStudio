@@ -31,7 +31,10 @@ public:
 
     QMap<QString, QVariant> properties;
     QMap<QString, QVariant> simState;
+    // Non-owning pad links; concrete components own pad storage until a scene model exists.
     QList<ConnectionPad*> pads;
+
+    void setComponentRotation(double degrees);
 
     virtual void stampMNA(double dt);
     virtual void stepMotion(MotionContext& context, double dt);
@@ -46,4 +49,3 @@ signals:
     void destroyedSignal(BaseComponent* component);
     void repairedSignal(BaseComponent* component);
 };
-
