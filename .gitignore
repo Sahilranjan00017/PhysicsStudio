@@ -2,6 +2,7 @@ build/
 out/
 .vs/
 .vscode/
+.DS_Store
 CMakeUserPresets.json
 *.user
 *.obj
@@ -12,4 +13,3 @@ CMakeUserPresets.json
 *.dylib
 *.so
 *.log
-
