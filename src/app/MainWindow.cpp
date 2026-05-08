@@ -1,13 +1,17 @@
 #include "app/MainWindow.h"
 
 #include "canvas/CanvasView.h"
+#include "components/ComponentRegistry.h"
 #include "simulation/SimulationLoop.h"
+#include "ui/partspanel/PartsPanel.h"
 
 #include <QAction>
 #include <QDockWidget>
 #include <QLabel>
 #include <QMenuBar>
+#include <QPointF>
 #include <QStatusBar>
+#include <QString>
 #include <QToolBar>
 
 MainWindow::MainWindow(QWidget* parent)
@@ -15,6 +19,8 @@ MainWindow::MainWindow(QWidget* parent)
       canvasView(new CanvasView(this)),
       simulationLoop(new SimulationLoop(this))
 {
+    registerCoreComponents(ComponentRegistry::instance());
+
     setWindowTitle("Physics Simulation Studio");
     resize(1280, 800);
     setCentralWidget(canvasView);
@@ -23,6 +29,15 @@ MainWindow::MainWindow(QWidget* parent)
     buildToolbar();
     buildDocks();
     statusBar()->showMessage("Ready");
+
+    connect(canvasView, &CanvasView::componentPlaced, this, [this](const QString& typeId, const QPointF& position) {
+        statusBar()->showMessage(
+            QString("Placed %1 at (%2, %3)")
+                .arg(typeId)
+                .arg(position.x(), 0, 'f', 0)
+                .arg(position.y(), 0, 'f', 0),
+            3000);
+    });
 }
 
 MainWindow::~MainWindow() = default;
@@ -57,11 +72,10 @@ void MainWindow::buildToolbar()
 void MainWindow::buildDocks()
 {
     auto* partsDock = new QDockWidget("Parts", this);
-    partsDock->setWidget(new QLabel("Parts library placeholder", partsDock));
+    partsDock->setWidget(new PartsPanel(partsDock));
     addDockWidget(Qt::LeftDockWidgetArea, partsDock);
 
     auto* propertiesDock = new QDockWidget("Properties", this);
     propertiesDock->setWidget(new QLabel("Properties placeholder", propertiesDock));
     addDockWidget(Qt::RightDockWidgetArea, propertiesDock);
 }
-

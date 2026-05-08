@@ -26,9 +26,13 @@ add_executable(PhysicsSimulationStudio
     src/canvas/CanvasView.h
     src/components/BaseComponent.cpp
     src/components/BaseComponent.h
+    src/components/ComponentRegistry.cpp
+    src/components/ComponentRegistry.h
     src/components/ConnectionPad.h
     src/components/Wire.cpp
     src/components/Wire.h
+    src/components/electronics/ElectronicsComponents.cpp
+    src/components/electronics/ElectronicsComponents.h
     src/interaction/UndoRedoStack.cpp
     src/interaction/UndoRedoStack.h
     src/simulation/SimulationLoop.cpp
@@ -36,6 +40,8 @@ add_executable(PhysicsSimulationStudio
     src/simulation/SolverInterfaces.h
     src/simulation/electronics/ElectronicsSolver.cpp
     src/simulation/electronics/ElectronicsSolver.h
+    src/ui/partspanel/PartsPanel.cpp
+    src/ui/partspanel/PartsPanel.h
     src/persistence/ProjectDocument.cpp
     src/persistence/ProjectDocument.h
 )
@@ -50,4 +56,3 @@ else()
 endif()
 
 install(TARGETS PhysicsSimulationStudio RUNTIME DESTINATION .)
-

@@ -23,6 +23,9 @@ constexpr auto propertiesKey = "properties";
 BaseComponent::BaseComponent(QGraphicsItem* parent)
     : QGraphicsObject(parent)
 {
+    setFlag(QGraphicsItem::ItemIsMovable, true);
+    setFlag(QGraphicsItem::ItemIsSelectable, true);
+    setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
 }
 
 BaseComponent::~BaseComponent() = default;

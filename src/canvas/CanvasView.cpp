@@ -1,7 +1,19 @@
 #include "canvas/CanvasView.h"
 
+#include "components/BaseComponent.h"
+#include "components/ComponentRegistry.h"
+
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QGraphicsScene>
+#include <QMimeData>
 #include <QPainter>
+#include <QtGlobal>
+#include <QUuid>
+
+namespace {
+constexpr auto componentTypeMime = "application/x-physicsstudio-component-type";
+}
 
 CanvasView::CanvasView(QWidget* parent)
     : QGraphicsView(parent),
@@ -12,6 +24,51 @@ CanvasView::CanvasView(QWidget* parent)
     setRenderHint(QPainter::Antialiasing, true);
     setDragMode(QGraphicsView::RubberBandDrag);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    setAcceptDrops(true);
+}
+
+void CanvasView::dragEnterEvent(QDragEnterEvent* event)
+{
+    if (event->mimeData()->hasFormat(componentTypeMime)) {
+        event->acceptProposedAction();
+        return;
+    }
+
+    QGraphicsView::dragEnterEvent(event);
+}
+
+void CanvasView::dragMoveEvent(QDragMoveEvent* event)
+{
+    if (event->mimeData()->hasFormat(componentTypeMime)) {
+        event->acceptProposedAction();
+        return;
+    }
+
+    QGraphicsView::dragMoveEvent(event);
+}
+
+void CanvasView::dropEvent(QDropEvent* event)
+{
+    if (!event->mimeData()->hasFormat(componentTypeMime)) {
+        QGraphicsView::dropEvent(event);
+        return;
+    }
+
+    const QString typeId = QString::fromUtf8(event->mimeData()->data(componentTypeMime));
+    BaseComponent* component = ComponentRegistry::instance().create(typeId);
+    if (component == nullptr) {
+        event->ignore();
+        return;
+    }
+
+    const QPoint viewportPosition = event->position().toPoint();
+    const QPointF scenePosition = snappedScenePosition(viewportPosition);
+    component->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    component->setPos(scenePosition);
+    scene->addItem(component);
+
+    emit componentPlaced(typeId, scenePosition);
+    event->acceptProposedAction();
 }
 
 void CanvasView::drawBackground(QPainter* painter, const QRectF& rect)
@@ -33,3 +90,10 @@ void CanvasView::drawBackground(QPainter* painter, const QRectF& rect)
     painter->drawLines(lines);
 }
 
+QPointF CanvasView::snappedScenePosition(const QPoint& viewportPosition) const
+{
+    const QPointF scenePosition = mapToScene(viewportPosition);
+    const double snappedX = qRound(scenePosition.x() / gridSize) * gridSize;
+    const double snappedY = qRound(scenePosition.y() / gridSize) * gridSize;
+    return QPointF(snappedX, snappedY);
+}
