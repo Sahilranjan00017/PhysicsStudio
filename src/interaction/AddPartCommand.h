@@ -22,4 +22,3 @@ private:
     BaseComponent* component = nullptr;
     bool ownsComponent = false;
 };
-
