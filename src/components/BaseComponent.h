@@ -35,6 +35,7 @@ public:
     QList<ConnectionPad*> pads;
 
     void setComponentRotation(double degrees);
+    void setComponentProperty(const QString& key, const QVariant& value);
 
     virtual void stampMNA(double dt);
     virtual void stepMotion(MotionContext& context, double dt);

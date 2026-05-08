@@ -11,12 +11,15 @@ class QDragMoveEvent;
 class QDropEvent;
 class QGraphicsScene;
 class QPainter;
+class UndoRedoStack;
 
 class CanvasView final : public QGraphicsView {
     Q_OBJECT
 
 public:
     explicit CanvasView(QWidget* parent = nullptr);
+    QGraphicsScene* graphicsScene() const;
+    void setUndoRedoStack(UndoRedoStack* stack);
 
 signals:
     void componentPlaced(QString typeId, QPointF position);
@@ -31,5 +34,6 @@ private:
     QPointF snappedScenePosition(const QPoint& viewportPosition) const;
 
     QGraphicsScene* scene = nullptr;
+    UndoRedoStack* undoRedoStack = nullptr;
     int gridSize = 20;
 };

@@ -34,6 +34,8 @@ add_executable(PhysicsSimulationStudio
     src/components/Wire.h
     src/components/electronics/ElectronicsComponents.cpp
     src/components/electronics/ElectronicsComponents.h
+    src/interaction/AddPartCommand.cpp
+    src/interaction/AddPartCommand.h
     src/interaction/UndoRedoStack.cpp
     src/interaction/UndoRedoStack.h
     src/simulation/SimulationLoop.cpp
@@ -43,6 +45,8 @@ add_executable(PhysicsSimulationStudio
     src/simulation/electronics/ElectronicsSolver.h
     src/ui/partspanel/PartsPanel.cpp
     src/ui/partspanel/PartsPanel.h
+    src/ui/properties/PropertiesPanel.cpp
+    src/ui/properties/PropertiesPanel.h
     src/persistence/ProjectDocument.cpp
     src/persistence/ProjectDocument.h
 )

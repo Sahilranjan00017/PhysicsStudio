@@ -1,13 +1,18 @@
 #include "app/MainWindow.h"
 
 #include "canvas/CanvasView.h"
+#include "components/BaseComponent.h"
 #include "components/ComponentRegistry.h"
+#include "interaction/UndoRedoStack.h"
 #include "simulation/SimulationLoop.h"
 #include "ui/partspanel/PartsPanel.h"
+#include "ui/properties/PropertiesPanel.h"
 
 #include <QAction>
 #include <QDockWidget>
-#include <QLabel>
+#include <QGraphicsItem>
+#include <QGraphicsScene>
+#include <QList>
 #include <QMenuBar>
 #include <QPointF>
 #include <QStatusBar>
@@ -17,9 +22,12 @@
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
       canvasView(new CanvasView(this)),
-      simulationLoop(new SimulationLoop(this))
+      propertiesPanel(new PropertiesPanel(this)),
+      simulationLoop(new SimulationLoop(this)),
+      undoRedoStack(new UndoRedoStack(this))
 {
     registerCoreComponents(ComponentRegistry::instance());
+    canvasView->setUndoRedoStack(undoRedoStack);
 
     setWindowTitle("Physics Simulation Studio");
     resize(1280, 800);
@@ -28,6 +36,7 @@ MainWindow::MainWindow(QWidget* parent)
     buildMenus();
     buildToolbar();
     buildDocks();
+    connectCanvasSelection();
     statusBar()->showMessage("Ready");
 
     connect(canvasView, &CanvasView::componentPlaced, this, [this](const QString& typeId, const QPointF& position) {
@@ -51,6 +60,10 @@ void MainWindow::buildMenus()
     fileMenu->addSeparator();
     fileMenu->addAction("Exit", this, &QWidget::close);
 
+    auto* editMenu = menuBar()->addMenu("&Edit");
+    editMenu->addAction(undoRedoStack->qtStack()->createUndoAction(this, "Undo"));
+    editMenu->addAction(undoRedoStack->qtStack()->createRedoAction(this, "Redo"));
+
     auto* simulationMenu = menuBar()->addMenu("&Simulation");
     simulationMenu->addAction("Play", simulationLoop, &SimulationLoop::start);
     simulationMenu->addAction("Pause", simulationLoop, &SimulationLoop::pause);
@@ -64,6 +77,9 @@ void MainWindow::buildToolbar()
     toolbar->addAction("Open");
     toolbar->addAction("Save");
     toolbar->addSeparator();
+    toolbar->addAction(undoRedoStack->qtStack()->createUndoAction(this, "Undo"));
+    toolbar->addAction(undoRedoStack->qtStack()->createRedoAction(this, "Redo"));
+    toolbar->addSeparator();
     toolbar->addAction("Play", simulationLoop, &SimulationLoop::start);
     toolbar->addAction("Pause", simulationLoop, &SimulationLoop::pause);
     toolbar->addAction("Reset", simulationLoop, &SimulationLoop::reset);
@@ -76,6 +92,20 @@ void MainWindow::buildDocks()
     addDockWidget(Qt::LeftDockWidgetArea, partsDock);
 
     auto* propertiesDock = new QDockWidget("Properties", this);
-    propertiesDock->setWidget(new QLabel("Properties placeholder", propertiesDock));
+    propertiesDock->setWidget(propertiesPanel);
     addDockWidget(Qt::RightDockWidgetArea, propertiesDock);
+}
+
+void MainWindow::connectCanvasSelection()
+{
+    connect(canvasView->graphicsScene(), &QGraphicsScene::selectionChanged, this, [this]() {
+        const QList<QGraphicsItem*> selectedItems = canvasView->graphicsScene()->selectedItems();
+        if (selectedItems.isEmpty()) {
+            propertiesPanel->setComponent(nullptr);
+            return;
+        }
+
+        auto* component = dynamic_cast<BaseComponent*>(selectedItems.first());
+        propertiesPanel->setComponent(component);
+    });
 }

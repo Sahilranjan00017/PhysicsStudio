@@ -30,3 +30,7 @@ bool UndoRedoStack::canRedo() const
     return stack.canRedo();
 }
 
+QUndoStack* UndoRedoStack::qtStack()
+{
+    return &stack;
+}

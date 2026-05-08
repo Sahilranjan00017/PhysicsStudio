@@ -1,8 +1,9 @@
 #include "canvas/CanvasView.h"
 
-#include "components/BaseComponent.h"
 #include "components/ComponentMimeTypes.h"
 #include "components/ComponentRegistry.h"
+#include "interaction/AddPartCommand.h"
+#include "interaction/UndoRedoStack.h"
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -10,7 +11,6 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QtGlobal>
-#include <QUuid>
 
 CanvasView::CanvasView(QWidget* parent)
     : QGraphicsView(parent),
@@ -22,6 +22,16 @@ CanvasView::CanvasView(QWidget* parent)
     setDragMode(QGraphicsView::RubberBandDrag);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setAcceptDrops(true);
+}
+
+QGraphicsScene* CanvasView::graphicsScene() const
+{
+    return scene;
+}
+
+void CanvasView::setUndoRedoStack(UndoRedoStack* stack)
+{
+    undoRedoStack = stack;
 }
 
 void CanvasView::dragEnterEvent(QDragEnterEvent* event)
@@ -51,18 +61,20 @@ void CanvasView::dropEvent(QDropEvent* event)
         return;
     }
 
+    const QPoint viewportPosition = event->position().toPoint();
+    const QPointF scenePosition = snappedScenePosition(viewportPosition);
     const QString typeId = QString::fromUtf8(event->mimeData()->data(ComponentMimeTypes::componentType));
-    BaseComponent* component = ComponentRegistry::instance().create(typeId);
-    if (component == nullptr) {
+    if (!ComponentRegistry::instance().contains(typeId)) {
         event->ignore();
         return;
     }
 
-    const QPoint viewportPosition = event->position().toPoint();
-    const QPointF scenePosition = snappedScenePosition(viewportPosition);
-    component->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    component->setPos(scenePosition);
-    scene->addItem(component);
+    if (undoRedoStack != nullptr) {
+        undoRedoStack->push(new AddPartCommand(scene, typeId, scenePosition));
+    } else {
+        AddPartCommand command(scene, typeId, scenePosition);
+        command.redo();
+    }
 
     emit componentPlaced(typeId, scenePosition);
     event->acceptProposedAction();

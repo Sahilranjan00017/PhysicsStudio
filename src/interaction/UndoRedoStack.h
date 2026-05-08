@@ -16,8 +16,8 @@ public:
     void redo();
     bool canUndo() const;
     bool canRedo() const;
+    QUndoStack* qtStack();
 
 private:
     QUndoStack stack;
 };
-

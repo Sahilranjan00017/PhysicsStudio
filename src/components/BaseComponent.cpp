@@ -36,6 +36,13 @@ void BaseComponent::setComponentRotation(double degrees)
     setRotation(degrees);
 }
 
+void BaseComponent::setComponentProperty(const QString& key, const QVariant& value)
+{
+    properties[key] = value;
+    emit propertyChanged(key, value);
+    update();
+}
+
 void BaseComponent::stampMNA(double)
 {
 }
