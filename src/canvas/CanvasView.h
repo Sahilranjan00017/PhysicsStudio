@@ -1,13 +1,16 @@
 #pragma once
 
 #include <QGraphicsView>
+#include <QPoint>
 #include <QPointF>
+#include <QRectF>
 #include <QString>
 
 class QDragEnterEvent;
 class QDragMoveEvent;
 class QDropEvent;
 class QGraphicsScene;
+class QPainter;
 
 class CanvasView final : public QGraphicsView {
     Q_OBJECT

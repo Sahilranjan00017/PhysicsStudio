@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QString>
 #include <QWidget>
 
 class QLineEdit;
@@ -23,4 +24,3 @@ private:
     QLineEdit* searchBox = nullptr;
     QTreeWidget* tree = nullptr;
 };
-

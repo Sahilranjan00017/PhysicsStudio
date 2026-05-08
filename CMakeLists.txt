@@ -26,6 +26,7 @@ add_executable(PhysicsSimulationStudio
     src/canvas/CanvasView.h
     src/components/BaseComponent.cpp
     src/components/BaseComponent.h
+    src/components/ComponentMimeTypes.h
     src/components/ComponentRegistry.cpp
     src/components/ComponentRegistry.h
     src/components/ConnectionPad.h

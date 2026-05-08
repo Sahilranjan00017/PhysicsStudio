@@ -13,6 +13,10 @@ ComponentRegistry& ComponentRegistry::instance()
 
 void ComponentRegistry::registerType(const ComponentDescriptor& descriptor, Factory factory)
 {
+    if (descriptor.typeId.isEmpty()) {
+        return;
+    }
+
     componentDescriptors.insert(descriptor.typeId, descriptor);
     factories.insert(descriptor.typeId, std::move(factory));
 }
@@ -46,5 +50,9 @@ bool ComponentRegistry::contains(const QString& typeId) const
 
 void registerCoreComponents(ComponentRegistry& registry)
 {
+    if (registry.contains("ELEC_RES")) {
+        return;
+    }
+
     registerElectronicsComponents(registry);
 }

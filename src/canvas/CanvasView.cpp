@@ -1,6 +1,7 @@
 #include "canvas/CanvasView.h"
 
 #include "components/BaseComponent.h"
+#include "components/ComponentMimeTypes.h"
 #include "components/ComponentRegistry.h"
 
 #include <QDragEnterEvent>
@@ -10,10 +11,6 @@
 #include <QPainter>
 #include <QtGlobal>
 #include <QUuid>
-
-namespace {
-constexpr auto componentTypeMime = "application/x-physicsstudio-component-type";
-}
 
 CanvasView::CanvasView(QWidget* parent)
     : QGraphicsView(parent),
@@ -29,7 +26,7 @@ CanvasView::CanvasView(QWidget* parent)
 
 void CanvasView::dragEnterEvent(QDragEnterEvent* event)
 {
-    if (event->mimeData()->hasFormat(componentTypeMime)) {
+    if (event->mimeData()->hasFormat(ComponentMimeTypes::componentType)) {
         event->acceptProposedAction();
         return;
     }
@@ -39,7 +36,7 @@ void CanvasView::dragEnterEvent(QDragEnterEvent* event)
 
 void CanvasView::dragMoveEvent(QDragMoveEvent* event)
 {
-    if (event->mimeData()->hasFormat(componentTypeMime)) {
+    if (event->mimeData()->hasFormat(ComponentMimeTypes::componentType)) {
         event->acceptProposedAction();
         return;
     }
@@ -49,12 +46,12 @@ void CanvasView::dragMoveEvent(QDragMoveEvent* event)
 
 void CanvasView::dropEvent(QDropEvent* event)
 {
-    if (!event->mimeData()->hasFormat(componentTypeMime)) {
+    if (!event->mimeData()->hasFormat(ComponentMimeTypes::componentType)) {
         QGraphicsView::dropEvent(event);
         return;
     }
 
-    const QString typeId = QString::fromUtf8(event->mimeData()->data(componentTypeMime));
+    const QString typeId = QString::fromUtf8(event->mimeData()->data(ComponentMimeTypes::componentType));
     BaseComponent* component = ComponentRegistry::instance().create(typeId);
     if (component == nullptr) {
         event->ignore();

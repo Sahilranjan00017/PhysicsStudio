@@ -2,6 +2,8 @@
 
 #include "components/BaseComponent.h"
 
+#include <QRectF>
+
 #include <array>
 
 class ComponentRegistry;

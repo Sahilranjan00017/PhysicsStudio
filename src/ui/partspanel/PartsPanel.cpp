@@ -1,5 +1,6 @@
 #include "ui/partspanel/PartsPanel.h"
 
+#include "components/ComponentMimeTypes.h"
 #include "components/ComponentRegistry.h"
 
 #include <QAbstractItemView>
@@ -12,7 +13,6 @@
 #include <QVBoxLayout>
 
 namespace {
-constexpr auto componentTypeMime = "application/x-physicsstudio-component-type";
 constexpr int typeIdRole = Qt::UserRole + 1;
 
 class PartsTreeWidget final : public QTreeWidget {
@@ -35,7 +35,7 @@ protected:
         }
 
         auto* data = new QMimeData();
-        data->setData(componentTypeMime, typeId.toUtf8());
+        data->setData(ComponentMimeTypes::componentType, typeId.toUtf8());
         data->setText(typeId);
         return data;
     }
