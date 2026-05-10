@@ -60,6 +60,8 @@ add_executable(PhysicsSimulationStudio
     src/components/Wire.h
     src/components/electronics/ElectronicsComponents.cpp
     src/components/electronics/ElectronicsComponents.h
+    src/components/motion/MotionComponents.cpp
+    src/components/motion/MotionComponents.h
     src/interaction/AddPartCommand.cpp
     src/interaction/AddPartCommand.h
     src/interaction/AddWireCommand.cpp
@@ -79,6 +81,8 @@ add_executable(PhysicsSimulationStudio
     src/simulation/SolverInterfaces.h
     src/simulation/electronics/ElectronicsSolver.cpp
     src/simulation/electronics/ElectronicsSolver.h
+    src/simulation/motion/MotionSolver.cpp
+    src/simulation/motion/MotionSolver.h
     src/ui/partspanel/PartsPanel.cpp
     src/ui/partspanel/PartsPanel.h
     src/ui/properties/PropertiesPanel.cpp

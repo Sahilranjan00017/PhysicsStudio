@@ -2,6 +2,7 @@
 
 #include "components/BaseComponent.h"
 #include "components/electronics/ElectronicsComponents.h"
+#include "components/motion/MotionComponents.h"
 
 #include <utility>
 
@@ -55,4 +56,5 @@ void registerCoreComponents(ComponentRegistry& registry)
     }
 
     registerElectronicsComponents(registry);
+    registerMotionComponents(registry);
 }

@@ -20,7 +20,9 @@ private:
     void buildToolbar();
     void buildDocks();
     void connectCanvasSelection();
-    void refreshSimulationDomain();   // rebuild + push domain to SimulationLoop
+    void refreshSimulationDomain();   // rebuilds ALL solver domains (electronics + motion)
+    void refreshElectronicsDomain();
+    void refreshMotionDomain();
     void newModel();
     void openModel();
     void saveModel();

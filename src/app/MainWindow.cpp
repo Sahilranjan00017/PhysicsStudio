@@ -3,11 +3,13 @@
 #include "canvas/CanvasView.h"
 #include "components/BaseComponent.h"
 #include "components/ComponentRegistry.h"
+#include "components/ConnectionPad.h"
 #include "components/Wire.h"
 #include "interaction/UndoRedoStack.h"
 #include "persistence/ProjectDocument.h"
 #include "simulation/SimulationLoop.h"
 #include "simulation/electronics/ElectronicsSolver.h"
+#include "simulation/motion/MotionSolver.h"
 #include "ui/partspanel/PartsPanel.h"
 #include "ui/properties/PropertiesPanel.h"
 
@@ -59,9 +61,14 @@ MainWindow::MainWindow(QWidget* parent)
         refreshSimulationDomain();
     });
 
-    // Rebuild domain whenever the scene changes (wires added, parts deleted…).
+    // Rebuild domains whenever the scene changes structurally.
+    // Guard: skip while the simulation is running — the motion solver moves items
+    // each tick, which would trigger changed() and reset physics state.
     connect(canvasView->graphicsScene(), &QGraphicsScene::changed,
-            this, [this](const QList<QRectF>&) { refreshSimulationDomain(); });
+            this, [this](const QList<QRectF>&) {
+                if (!simulationLoop->isRunning())
+                    refreshSimulationDomain();
+            });
 
     // After each solver tick, repaint the canvas so live values show up.
     connect(simulationLoop, &SimulationLoop::tickComplete,
@@ -218,7 +225,12 @@ bool MainWindow::loadModelFrom(const QString& path)
 
 void MainWindow::refreshSimulationDomain()
 {
-    // Collect all electrical components and wires from the canvas.
+    refreshElectronicsDomain();
+    refreshMotionDomain();
+}
+
+void MainWindow::refreshElectronicsDomain()
+{
     ElectronicsDomain domain;
     for (auto* comp : canvasView->components()) {
         for (auto* pad : comp->pads) {
@@ -230,4 +242,111 @@ void MainWindow::refreshSimulationDomain()
     }
     domain.wires = canvasView->wires();
     simulationLoop->setElectronicsDomain(std::move(domain));
+}
+
+void MainWindow::refreshMotionDomain()
+{
+    MotionDomain domain;
+
+    // Use the scene rect as the physics boundary.
+    const QRectF sr = canvasView->graphicsScene()->sceneRect();
+    domain.boundaryLeft   = sr.left();
+    domain.boundaryRight  = sr.right();
+    domain.boundaryTop    = sr.top();
+    domain.boundaryBottom = sr.bottom();
+
+    // Map from component pointer → index in domain.bodies (for spring wiring).
+    QMap<BaseComponent*, int> bodyIndex;
+
+    // --- Pass 1: build bodies from Ball / Block / Anchor components. ---
+    for (auto* comp : canvasView->components()) {
+        bool isMechanical = false;
+        for (auto* pad : comp->pads) {
+            if (pad->domain == DomainType::Mechanical) { isMechanical = true; break; }
+        }
+        if (!isMechanical) continue;
+
+        if (comp->typeId == "MOT_BALL") {
+            MotionBody body;
+            body.component  = comp;
+            body.shape      = MotionBody::Shape::Ball;
+            body.mass       = comp->properties.value("mass",        1.0).toDouble();
+            body.radius     = comp->properties.value("radius",     20.0).toDouble();
+            body.restitution= comp->properties.value("restitution",  0.8).toDouble();
+            body.fixed      = false;
+            body.pos        = comp->pos();
+            body.vel        = QPointF(comp->properties.value("velocityX", 0.0).toDouble(),
+                                      comp->properties.value("velocityY", 0.0).toDouble());
+            bodyIndex[comp] = domain.bodies.size();
+            domain.bodies.append(body);
+
+            // Clear stale sim-state so the ball redraws cleanly.
+            comp->simState.remove("vx");
+            comp->simState.remove("vy");
+            comp->simState.remove("speed");
+            comp->update();
+
+        } else if (comp->typeId == "MOT_BLOCK") {
+            MotionBody body;
+            body.component  = comp;
+            body.shape      = MotionBody::Shape::Block;
+            body.mass       = comp->properties.value("mass",        5.0).toDouble();
+            body.halfW      = comp->properties.value("halfW",      40.0).toDouble();
+            body.halfH      = comp->properties.value("halfH",      20.0).toDouble();
+            body.restitution= comp->properties.value("restitution",  0.5).toDouble();
+            body.fixed      = comp->properties.value("fixed", false).toBool() || body.mass <= 0.0;
+            body.pos        = comp->pos();
+            body.vel        = QPointF(0.0, 0.0);
+            bodyIndex[comp] = domain.bodies.size();
+            domain.bodies.append(body);
+
+        } else if (comp->typeId == "MOT_ANCHOR") {
+            MotionBody body;
+            body.component  = comp;
+            body.shape      = MotionBody::Shape::Ball;
+            body.mass       = 1.0;
+            body.radius     = 6.0;
+            body.restitution= 1.0;
+            body.fixed      = true;
+            body.pos        = comp->pos();
+            body.vel        = QPointF(0.0, 0.0);
+            bodyIndex[comp] = domain.bodies.size();
+            domain.bodies.append(body);
+        }
+    }
+
+    // --- Pass 2: build springs from Spring components. ---
+    for (auto* comp : canvasView->components()) {
+        if (comp->typeId != "MOT_SPRING") continue;
+
+        auto resolveBody = [&](const QString& padId, QPointF& outAnchor) -> int {
+            const ConnectionPad* pad = comp->padById(padId);
+            if (!pad || pad->connectedWires.isEmpty()) {
+                outAnchor = comp->mapToScene(pad ? pad->localPos : QPointF());
+                return -1;
+            }
+            const Wire* wire = pad->connectedWires.first();
+            BaseComponent* other = (wire->startPad == pad)
+                ? wire->endComponent : wire->startComponent;
+            if (other && bodyIndex.contains(other))
+                return bodyIndex[other];
+            outAnchor = comp->mapToScene(pad->localPos);
+            return -1;
+        };
+
+        MotionSpring spring;
+        spring.bodyA       = resolveBody("a", spring.anchorA);
+        spring.bodyB       = resolveBody("b", spring.anchorB);
+        spring.stiffness   = comp->properties.value("stiffness",  200.0).toDouble();
+        spring.restLength  = comp->properties.value("restLength", 100.0).toDouble();
+        spring.damping     = comp->properties.value("damping",      2.0).toDouble();
+        spring.springComponent = comp;
+        domain.springs.append(spring);
+
+        // Clear stale live-endpoint flag so the spring redraws statically.
+        comp->simState.remove("hasLiveEndpoints");
+        comp->update();
+    }
+
+    simulationLoop->setMotionDomain(std::move(domain));
 }

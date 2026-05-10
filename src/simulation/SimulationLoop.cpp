@@ -38,6 +38,11 @@ void SimulationLoop::setElectronicsDomain(ElectronicsDomain domain)
     electronicsDomain = std::move(domain);
 }
 
+void SimulationLoop::setMotionDomain(MotionDomain domain)
+{
+    motionDomain = std::move(domain);
+}
+
 void SimulationLoop::tick()
 {
     if (!running)
@@ -46,11 +51,15 @@ void SimulationLoop::tick()
     const double dt = fixedFrameDt * speed;
     simulationTime += dt;
 
-    // --- Electronics ---
+    // --- Electronics (stateless MNA — recomputes every tick) ---
     if (!electronicsDomain.components.isEmpty())
         electronicsSolver.solve(electronicsDomain, dt);
 
-    // --- Motion / Optics / Waves: solvers added in Phase 3-4 ---
+    // --- Motion (stateful — domain persists, bodies integrate over time) ---
+    if (!motionDomain.bodies.isEmpty())
+        motionSolver.step(motionDomain, dt);
+
+    // --- Optics / Waves: solvers added in Phase 4 ---
 
     emit tickComplete(simulationTime);
 }
