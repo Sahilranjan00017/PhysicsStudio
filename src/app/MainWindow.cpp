@@ -171,6 +171,7 @@ bool MainWindow::saveModelAs(const QString& path)
 {
     ProjectDocument document;
     document.components = canvasView->componentsToJson();
+    document.wires = canvasView->wiresToJson();
 
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -197,7 +198,7 @@ bool MainWindow::loadModelFrom(const QString& path)
     }
 
     const ProjectDocument document = ProjectDocument::fromJson(json.object());
-    canvasView->loadComponents(document.components);
+    canvasView->loadScene(document.components, document.wires);
     undoRedoStack->qtStack()->clear();
     propertiesPanel->setComponent(nullptr);
     return true;

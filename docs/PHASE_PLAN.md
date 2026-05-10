@@ -29,7 +29,7 @@ Deliverables:
 
 ## Phase 1 - Canvas and Component MVP
 
-Status: implementation complete on macOS; compile/runtime validation pending Windows build gate.
+Status: implementation complete on macOS; wire scene model added; compile/runtime validation pending Windows build gate.
 
 Deliverables:
 
@@ -37,3 +37,17 @@ Deliverables:
 - [x] Canvas placement
 - [x] Selection/delete
 - [x] Basic component serialization
+
+## Phase 1.5 - Wire Drawing and Scene Model
+
+Status: implementation complete on macOS; compile/runtime validation pending Windows build gate.
+
+Deliverables:
+
+- [x] Click-and-drag wire drawing between compatible pads
+- [x] Undoable wire creation
+- [x] Undoable wire deletion
+- [x] Component deletion removes attached wires safely
+- [x] Wire rerouting when connected components move
+- [x] Save/load wires with component endpoint references
+- [x] Component and wire scene model for `.pss` files

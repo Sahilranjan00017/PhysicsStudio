@@ -3,8 +3,8 @@
 **Project**: Physics Simulation Studio
 **Phase**: 1 - Canvas and Component MVP
 **Date**: 2026-05-10
-**Status**: Implementation complete on macOS; Windows build validation still pending
-**Commit**: febccbd
+**Status**: UI foundation complete; wire scene model complete on macOS; Windows build validation still pending
+**Commits**: febccbd, pending wire scene model commit
 
 ## Scope Completed
 
@@ -60,3 +60,17 @@ Reason: `cmake` is not installed in the current macOS environment, and the offic
 Overall project progress is now approximately **35%**.
 
 This moves the app from a foundation/prototype state into a usable UI foundation: users can place components, select them, edit properties, undo/redo edits, delete parts, and save/load component-only scenes.
+
+## 50% Milestone Addendum
+
+The 35% to 50% slice adds the missing scene-model layer for connections:
+
+- [x] Wires are first-class `QGraphicsItem` scene objects.
+- [x] Users can drag from one component pad to another compatible pad to create a wire.
+- [x] Wire creation and deletion are undoable.
+- [x] Component deletion removes attached wires without leaving dangling pad links.
+- [x] Wires reroute when connected components move.
+- [x] `.pss` files now persist both `components` and `wires`.
+- [x] Wire loading resolves component ids and pad ids back into live scene references.
+
+Overall project progress after this addendum is approximately **50%**, pending compile/runtime validation on a machine with Qt6/CMake available.

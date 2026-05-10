@@ -1,5 +1,7 @@
 #include "components/BaseComponent.h"
 
+#include "components/Wire.h"
+
 #include <QJsonObject>
 
 namespace {
@@ -41,6 +43,26 @@ void BaseComponent::setComponentProperty(const QString& key, const QVariant& val
     properties[key] = value;
     emit propertyChanged(key, value);
     update();
+}
+
+ConnectionPad* BaseComponent::padById(const QString& padId)
+{
+    for (ConnectionPad* pad : pads) {
+        if (pad != nullptr && pad->padId == padId) {
+            return pad;
+        }
+    }
+    return nullptr;
+}
+
+const ConnectionPad* BaseComponent::padById(const QString& padId) const
+{
+    for (const ConnectionPad* pad : pads) {
+        if (pad != nullptr && pad->padId == padId) {
+            return pad;
+        }
+    }
+    return nullptr;
 }
 
 void BaseComponent::stampMNA(double)
@@ -106,4 +128,22 @@ void BaseComponent::fromJson(const QJsonObject& object)
     destructible = object[destructibleKey].toBool();
     destroyed = object[destroyedKey].toBool();
     properties = object[propertiesKey].toObject().toVariantMap();
+}
+
+QVariant BaseComponent::itemChange(GraphicsItemChange change, const QVariant& value)
+{
+    if (change == QGraphicsItem::ItemPositionHasChanged) {
+        for (ConnectionPad* pad : pads) {
+            if (pad == nullptr) {
+                continue;
+            }
+            for (Wire* wire : pad->connectedWires) {
+                if (wire != nullptr) {
+                    wire->reroute();
+                }
+            }
+        }
+    }
+
+    return QGraphicsObject::itemChange(change, value);
 }

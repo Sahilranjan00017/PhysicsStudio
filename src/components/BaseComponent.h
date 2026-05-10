@@ -36,6 +36,8 @@ public:
 
     void setComponentRotation(double degrees);
     void setComponentProperty(const QString& key, const QVariant& value);
+    ConnectionPad* padById(const QString& padId);
+    const ConnectionPad* padById(const QString& padId) const;
 
     virtual void stampMNA(double dt);
     virtual void stepMotion(MotionContext& context, double dt);
@@ -49,4 +51,7 @@ signals:
     void propertyChanged(QString key, QVariant value);
     void destroyedSignal(BaseComponent* component);
     void repairedSignal(BaseComponent* component);
+
+protected:
+    QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
 };
