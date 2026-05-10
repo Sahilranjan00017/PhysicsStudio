@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QString>
 
 class CanvasView;
 class PropertiesPanel;
@@ -19,9 +20,15 @@ private:
     void buildToolbar();
     void buildDocks();
     void connectCanvasSelection();
+    void newModel();
+    void openModel();
+    void saveModel();
+    bool saveModelAs(const QString& path);
+    bool loadModelFrom(const QString& path);
 
     CanvasView* canvasView = nullptr;
     PropertiesPanel* propertiesPanel = nullptr;
     SimulationLoop* simulationLoop = nullptr;
     UndoRedoStack* undoRedoStack = nullptr;
+    QString currentProjectPath;
 };

@@ -36,6 +36,12 @@ add_executable(PhysicsSimulationStudio
     src/components/electronics/ElectronicsComponents.h
     src/interaction/AddPartCommand.cpp
     src/interaction/AddPartCommand.h
+    src/interaction/ChangePropertyCommand.cpp
+    src/interaction/ChangePropertyCommand.h
+    src/interaction/DeletePartCommand.cpp
+    src/interaction/DeletePartCommand.h
+    src/interaction/MovePartCommand.cpp
+    src/interaction/MovePartCommand.h
     src/interaction/UndoRedoStack.cpp
     src/interaction/UndoRedoStack.h
     src/simulation/SimulationLoop.cpp

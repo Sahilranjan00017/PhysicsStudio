@@ -1,6 +1,8 @@
 #include "ui/properties/PropertiesPanel.h"
 
 #include "components/BaseComponent.h"
+#include "interaction/ChangePropertyCommand.h"
+#include "interaction/UndoRedoStack.h"
 
 #include <QFormLayout>
 #include <QLabel>
@@ -26,8 +28,28 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
 
 void PropertiesPanel::setComponent(BaseComponent* component)
 {
+    if (propertyChangedConnection) {
+        disconnect(propertyChangedConnection);
+        propertyChangedConnection = {};
+    }
+
     selectedComponent = component;
+    if (selectedComponent != nullptr) {
+        propertyChangedConnection = connect(
+            selectedComponent,
+            &BaseComponent::propertyChanged,
+            this,
+            [this](const QString&, const QVariant&) {
+                rebuildForm();
+            });
+    }
+
     rebuildForm();
+}
+
+void PropertiesPanel::setUndoRedoStack(UndoRedoStack* stack)
+{
+    undoRedoStack = stack;
 }
 
 QVariant PropertiesPanel::parsedValue(const QVariant& originalValue, const QString& text) const
@@ -73,7 +95,17 @@ void PropertiesPanel::rebuildForm()
                 return;
             }
 
-            component->setComponentProperty(key, parsedValue(originalValue, editor->text()));
+            const QVariant newValue = parsedValue(originalValue, editor->text());
+            const QVariant currentValue = component->properties.value(key);
+            if (newValue == currentValue) {
+                return;
+            }
+
+            if (undoRedoStack != nullptr) {
+                undoRedoStack->push(new ChangePropertyCommand(component, key, currentValue, newValue));
+            } else {
+                component->setComponentProperty(key, newValue);
+            }
         });
 
         formLayout->addRow(key, editor);

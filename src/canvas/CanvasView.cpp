@@ -1,14 +1,21 @@
 #include "canvas/CanvasView.h"
 
+#include "components/BaseComponent.h"
 #include "components/ComponentMimeTypes.h"
 #include "components/ComponentRegistry.h"
 #include "interaction/AddPartCommand.h"
+#include "interaction/DeletePartCommand.h"
+#include "interaction/MovePartCommand.h"
 #include "interaction/UndoRedoStack.h"
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QGraphicsScene>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QtGlobal>
 
@@ -27,6 +34,66 @@ CanvasView::CanvasView(QWidget* parent)
 QGraphicsScene* CanvasView::graphicsScene() const
 {
     return scene;
+}
+
+QList<BaseComponent*> CanvasView::components() const
+{
+    QList<BaseComponent*> result;
+    for (QGraphicsItem* item : scene->items()) {
+        if (auto* component = dynamic_cast<BaseComponent*>(item)) {
+            result.append(component);
+        }
+    }
+    return result;
+}
+
+QJsonArray CanvasView::componentsToJson() const
+{
+    QJsonArray array;
+    for (BaseComponent* component : components()) {
+        array.append(component->toJson());
+    }
+    return array;
+}
+
+void CanvasView::clearComponents()
+{
+    scene->clear();
+    dragStartPositions.clear();
+}
+
+void CanvasView::deleteSelectedComponents()
+{
+    const QList<QGraphicsItem*> selectedItems = scene->selectedItems();
+    for (QGraphicsItem* item : selectedItems) {
+        auto* component = dynamic_cast<BaseComponent*>(item);
+        if (component == nullptr) {
+            continue;
+        }
+
+        if (undoRedoStack != nullptr) {
+            undoRedoStack->push(new DeletePartCommand(scene, component));
+        } else {
+            delete component;
+        }
+    }
+}
+
+void CanvasView::loadComponents(const QJsonArray& componentArray)
+{
+    clearComponents();
+
+    for (const QJsonValue& value : componentArray) {
+        const QJsonObject object = value.toObject();
+        const QString typeId = object["typeId"].toString();
+        BaseComponent* component = ComponentRegistry::instance().create(typeId);
+        if (component == nullptr) {
+            continue;
+        }
+
+        component->fromJson(object);
+        scene->addItem(component);
+    }
 }
 
 void CanvasView::setUndoRedoStack(UndoRedoStack* stack)
@@ -97,6 +164,41 @@ void CanvasView::drawBackground(QPainter* painter, const QRectF& rect)
 
     painter->setPen(QPen(QColor(230, 234, 238), 1));
     painter->drawLines(lines);
+}
+
+void CanvasView::mousePressEvent(QMouseEvent* event)
+{
+    dragStartPositions.clear();
+    for (BaseComponent* component : components()) {
+        dragStartPositions.insert(component, component->pos());
+    }
+
+    QGraphicsView::mousePressEvent(event);
+}
+
+void CanvasView::mouseReleaseEvent(QMouseEvent* event)
+{
+    QGraphicsView::mouseReleaseEvent(event);
+
+    if (undoRedoStack == nullptr) {
+        dragStartPositions.clear();
+        return;
+    }
+
+    for (auto it = dragStartPositions.cbegin(); it != dragStartPositions.cend(); ++it) {
+        BaseComponent* component = it.key();
+        if (component == nullptr || component->scene() != scene) {
+            continue;
+        }
+
+        const QPointF oldPosition = it.value();
+        const QPointF newPosition = component->pos();
+        if (oldPosition != newPosition) {
+            undoRedoStack->push(new MovePartCommand(component, oldPosition, newPosition));
+        }
+    }
+
+    dragStartPositions.clear();
 }
 
 QPointF CanvasView::snappedScenePosition(const QPoint& viewportPosition) const
