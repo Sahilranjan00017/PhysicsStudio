@@ -4,6 +4,8 @@
 #include <QString>
 
 class CanvasView;
+class DataLogger;
+class GraphPanel;
 class OpticsOverlay;
 class PropertiesPanel;
 class SimulationLoop;
@@ -32,6 +34,7 @@ private:
     void saveModel();
     bool saveModelAs(const QString& path);
     bool loadModelFrom(const QString& path);
+    void openExample(const QString& resourcePath);
 
     CanvasView*       canvasView       = nullptr;
     OpticsOverlay*    opticsOverlay    = nullptr;
@@ -39,5 +42,7 @@ private:
     PropertiesPanel*  propertiesPanel  = nullptr;
     SimulationLoop*   simulationLoop   = nullptr;
     UndoRedoStack*    undoRedoStack    = nullptr;
+    DataLogger*       dataLogger       = nullptr;
+    GraphPanel*       graphPanel       = nullptr;
     QString currentProjectPath;
 };

@@ -14,6 +14,8 @@
 #include "simulation/motion/MotionSolver.h"
 #include "simulation/optics/OpticalSolver.h"
 #include "simulation/wave/WaveSolver.h"
+#include "ui/graph/DataLogger.h"
+#include "ui/graph/GraphPanel.h"
 #include "ui/partspanel/PartsPanel.h"
 #include "ui/properties/PropertiesPanel.h"
 
@@ -39,7 +41,8 @@ MainWindow::MainWindow(QWidget* parent)
       canvasView(new CanvasView(this)),
       propertiesPanel(new PropertiesPanel(this)),
       simulationLoop(new SimulationLoop(this)),
-      undoRedoStack(new UndoRedoStack(this))
+      undoRedoStack(new UndoRedoStack(this)),
+      dataLogger(new DataLogger(this))
 {
     registerCoreComponents(ComponentRegistry::instance());
     canvasView->setUndoRedoStack(undoRedoStack);
@@ -84,12 +87,14 @@ MainWindow::MainWindow(QWidget* parent)
             });
 
     // After each solver tick, repaint the canvas so live values show up,
-    // and refresh the optics/wave overlays with the latest data.
+    // refresh the optics/wave overlays, and feed the data logger.
     connect(simulationLoop, &SimulationLoop::tickComplete,
-            this, [this](double) {
+            this, [this](double simTime) {
                 if (opticsOverlay)    opticsOverlay->update();
                 if (waveFieldOverlay) waveFieldOverlay->update();
+                dataLogger->onTick(simTime);
                 canvasView->viewport()->update();
+                statusBar()->showMessage(QString("t = %1 s").arg(simTime, 0, 'f', 2));
             });
 }
 
@@ -102,6 +107,19 @@ void MainWindow::buildMenus()
     fileMenu->addAction("Open Model", this, &MainWindow::openModel);
     fileMenu->addAction("Save", this, &MainWindow::saveModel);
     fileMenu->addSeparator();
+
+    auto* examplesMenu = fileMenu->addMenu("Open Example");
+    examplesMenu->addAction("Electronics — Voltage Divider", this, [this] {
+        openExample(":/examples/electronics_divider.pss");
+    });
+    examplesMenu->addAction("Motion — Bouncing Balls", this, [this] {
+        openExample(":/examples/motion_bounce.pss");
+    });
+    examplesMenu->addAction("Waves — Two-Source Interference", this, [this] {
+        openExample(":/examples/waves_interference.pss");
+    });
+
+    fileMenu->addSeparator();
     fileMenu->addAction("Exit", this, &QWidget::close);
 
     auto* editMenu = menuBar()->addMenu("&Edit");
@@ -111,24 +129,31 @@ void MainWindow::buildMenus()
     deleteAction->setShortcut(QKeySequence(Qt::Key_Delete));
 
     auto* simulationMenu = menuBar()->addMenu("&Simulation");
-    simulationMenu->addAction("Play", simulationLoop, &SimulationLoop::start);
+    simulationMenu->addAction("Play",  simulationLoop, &SimulationLoop::start);
     simulationMenu->addAction("Pause", simulationLoop, &SimulationLoop::pause);
-    simulationMenu->addAction("Reset", simulationLoop, &SimulationLoop::reset);
+    simulationMenu->addAction("Reset", this, [this] {
+        simulationLoop->reset();
+        dataLogger->clearData();
+        statusBar()->showMessage("Simulation reset", 2000);
+    });
 }
 
 void MainWindow::buildToolbar()
 {
     auto* toolbar = addToolBar("Main");
-    toolbar->addAction("New", this, &MainWindow::newModel);
+    toolbar->addAction("New",  this, &MainWindow::newModel);
     toolbar->addAction("Open", this, &MainWindow::openModel);
     toolbar->addAction("Save", this, &MainWindow::saveModel);
     toolbar->addSeparator();
     toolbar->addAction(undoRedoStack->qtStack()->createUndoAction(this, "Undo"));
     toolbar->addAction(undoRedoStack->qtStack()->createRedoAction(this, "Redo"));
     toolbar->addSeparator();
-    toolbar->addAction("Play", simulationLoop, &SimulationLoop::start);
+    toolbar->addAction("Play",  simulationLoop, &SimulationLoop::start);
     toolbar->addAction("Pause", simulationLoop, &SimulationLoop::pause);
-    toolbar->addAction("Reset", simulationLoop, &SimulationLoop::reset);
+    toolbar->addAction("Reset", this, [this] {
+        simulationLoop->reset();
+        dataLogger->clearData();
+    });
 }
 
 void MainWindow::buildDocks()
@@ -140,6 +165,13 @@ void MainWindow::buildDocks()
     auto* propertiesDock = new QDockWidget("Properties", this);
     propertiesDock->setWidget(propertiesPanel);
     addDockWidget(Qt::RightDockWidgetArea, propertiesDock);
+
+    // Graph panel — docked at the bottom; shows live time-series data.
+    graphPanel = new GraphPanel(dataLogger, this);
+    auto* graphDock = new QDockWidget("Live Graph", this);
+    graphDock->setWidget(graphPanel);
+    graphDock->setMinimumHeight(140);
+    addDockWidget(Qt::BottomDockWidgetArea, graphDock);
 }
 
 void MainWindow::connectCanvasSelection()
@@ -247,6 +279,9 @@ void MainWindow::refreshSimulationDomain()
     refreshMotionDomain();
     refreshOpticsDomain();
     refreshWaveDomain();
+
+    // Rebuild the data logger channel list from the updated scene.
+    dataLogger->setComponents(canvasView->components());
 }
 
 void MainWindow::refreshElectronicsDomain()
@@ -407,4 +442,33 @@ void MainWindow::refreshWaveDomain()
     simulationLoop->setWaveDomain(std::move(domain));
     if (waveFieldOverlay)
         waveFieldOverlay->update();
+}
+
+void MainWindow::openExample(const QString& resourcePath)
+{
+    QFile file(resourcePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        QMessageBox::warning(this, "Example Error",
+            QString("Could not load example:\n%1").arg(resourcePath));
+        return;
+    }
+
+    const QJsonDocument json = QJsonDocument::fromJson(file.readAll());
+    if (!json.isObject()) {
+        QMessageBox::warning(this, "Example Error", "Invalid example file format.");
+        return;
+    }
+
+    simulationLoop->pause();
+    dataLogger->clearData();
+
+    const ProjectDocument doc = ProjectDocument::fromJson(json.object());
+    canvasView->loadScene(doc.components, doc.wires);
+    undoRedoStack->qtStack()->clear();
+    propertiesPanel->setComponent(nullptr);
+    currentProjectPath.clear();
+
+    refreshSimulationDomain();
+    statusBar()->showMessage(
+        QString("Example loaded — press Play to start"), 4000);
 }

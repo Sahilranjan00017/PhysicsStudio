@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/examples">
+        <file>examples/electronics_divider.pss</file>
+        <file>examples/motion_bounce.pss</file>
+        <file>examples/waves_interference.pss</file>
+    </qresource>
+</RCC>

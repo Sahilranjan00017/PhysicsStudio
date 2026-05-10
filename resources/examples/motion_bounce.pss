@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "ball1",
+            "typeId": "MOT_BALL",
+            "displayName": "Ball",
+            "position": { "x": 800, "y": 350 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 24.0, "restitution": 0.88, "velocityX": 200.0, "velocityY": 0.0 }
+        },
+        {
+            "id": "ball2",
+            "typeId": "MOT_BALL",
+            "displayName": "Ball 2",
+            "position": { "x": 1600, "y": 450 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 2.0, "radius": 30.0, "restitution": 0.75, "velocityX": -120.0, "velocityY": 0.0 }
+        },
+        {
+            "id": "wall1",
+            "typeId": "MOT_BLOCK",
+            "displayName": "Wall",
+            "position": { "x": 1200, "y": 1200 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 0.0, "halfW": 400.0, "halfH": 20.0, "fixed": true, "restitution": 0.7 }
+        }
+    ],
+    "wires": []
+}

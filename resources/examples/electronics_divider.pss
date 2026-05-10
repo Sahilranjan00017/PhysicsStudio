@@ -1,0 +1,79 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "vsrc1",
+            "typeId": "ELEC_VSRC",
+            "displayName": "Voltage Source",
+            "position": { "x": 550, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 9.0, "internalResistance": 0.0 }
+        },
+        {
+            "id": "res1",
+            "typeId": "ELEC_RES",
+            "displayName": "R1",
+            "position": { "x": 850, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 1000.0, "maxCurrent": 0.25, "destructible": false }
+        },
+        {
+            "id": "res2",
+            "typeId": "ELEC_RES",
+            "displayName": "R2",
+            "position": { "x": 1150, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 2200.0, "maxCurrent": 0.25, "destructible": false }
+        },
+        {
+            "id": "amm1",
+            "typeId": "ELEC_AMM",
+            "displayName": "Ammeter",
+            "position": { "x": 1450, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "range": 1.0, "burdenResistance": 0.000001 }
+        },
+        {
+            "id": "voltm1",
+            "typeId": "ELEC_VOLTM",
+            "displayName": "Voltmeter",
+            "position": { "x": 1150, "y": 700 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "range": 10.0, "inputResistance": 1000000000.0 }
+        },
+        {
+            "id": "gnd1",
+            "typeId": "ELEC_GND",
+            "displayName": "Ground",
+            "position": { "x": 550, "y": 700 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": [
+        { "wireType": "signal", "startComponentId": "vsrc1", "startPadId": "b", "endComponentId": "res1",  "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res1",  "startPadId": "b", "endComponentId": "res2",  "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res2",  "startPadId": "b", "endComponentId": "amm1",  "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "amm1",  "startPadId": "b", "endComponentId": "vsrc1", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res2",  "startPadId": "a", "endComponentId": "voltm1","endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "gnd1",  "startPadId": "gnd","endComponentId": "vsrc1","endPadId": "a" }
+    ]
+}

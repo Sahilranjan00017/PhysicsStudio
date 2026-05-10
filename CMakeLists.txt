@@ -95,12 +95,17 @@ add_executable(PhysicsSimulationStudio
     src/simulation/optics/OpticalSolver.h
     src/simulation/wave/WaveSolver.cpp
     src/simulation/wave/WaveSolver.h
+    src/ui/graph/DataLogger.cpp
+    src/ui/graph/DataLogger.h
+    src/ui/graph/GraphPanel.cpp
+    src/ui/graph/GraphPanel.h
     src/ui/partspanel/PartsPanel.cpp
     src/ui/partspanel/PartsPanel.h
     src/ui/properties/PropertiesPanel.cpp
     src/ui/properties/PropertiesPanel.h
     src/persistence/ProjectDocument.cpp
     src/persistence/ProjectDocument.h
+    resources/resources.qrc
 )
 
 target_include_directories(PhysicsSimulationStudio PRIVATE src)
