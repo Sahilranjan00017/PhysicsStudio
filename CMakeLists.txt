@@ -18,6 +18,12 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 option(PSS_BUILD_TESTS "Build unit tests" ON)
 
+if(APPLE AND TARGET WrapOpenGL::WrapOpenGL)
+    set_target_properties(WrapOpenGL::WrapOpenGL PROPERTIES
+        INTERFACE_LINK_LIBRARIES "-framework OpenGL"
+    )
+endif()
+
 add_executable(PhysicsSimulationStudio
     src/main.cpp
     src/app/MainWindow.cpp
