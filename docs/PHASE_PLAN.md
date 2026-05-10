@@ -29,10 +29,11 @@ Deliverables:
 
 ## Phase 1 - Canvas and Component MVP
 
+Status: implementation complete on macOS; compile/runtime validation pending Windows build gate.
+
 Deliverables:
 
-- Parts panel tree
-- Canvas placement
-- Selection/delete
-- Basic component serialization
-
+- [x] Parts panel tree
+- [x] Canvas placement
+- [x] Selection/delete
+- [x] Basic component serialization
