@@ -20,15 +20,16 @@ private:
     void buildToolbar();
     void buildDocks();
     void connectCanvasSelection();
+    void refreshSimulationDomain();   // rebuild + push domain to SimulationLoop
     void newModel();
     void openModel();
     void saveModel();
     bool saveModelAs(const QString& path);
     bool loadModelFrom(const QString& path);
 
-    CanvasView* canvasView = nullptr;
+    CanvasView*      canvasView      = nullptr;
     PropertiesPanel* propertiesPanel = nullptr;
-    SimulationLoop* simulationLoop = nullptr;
-    UndoRedoStack* undoRedoStack = nullptr;
+    SimulationLoop*  simulationLoop  = nullptr;
+    UndoRedoStack*   undoRedoStack   = nullptr;
     QString currentProjectPath;
 };

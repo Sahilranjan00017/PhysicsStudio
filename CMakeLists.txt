@@ -16,6 +16,26 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
+# ---------------------------------------------------------------------------
+# Eigen3 (header-only linear algebra — used by ElectronicsSolver for MNA)
+# Try system install first; fall back to FetchContent so Windows builds work
+# without any manual setup step.
+# ---------------------------------------------------------------------------
+find_package(Eigen3 3.4 QUIET)
+if(NOT Eigen3_FOUND)
+    message(STATUS "Eigen3 not found on system — fetching via FetchContent")
+    include(FetchContent)
+    FetchContent_Declare(
+        Eigen3
+        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+        GIT_TAG        3.4.0
+        GIT_SHALLOW    TRUE
+    )
+    set(EIGEN_BUILD_DOC OFF CACHE BOOL "" FORCE)
+    set(BUILD_TESTING   OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(Eigen3)
+endif()
+
 option(PSS_BUILD_TESTS "Build unit tests" ON)
 
 if(APPLE AND TARGET WrapOpenGL::WrapOpenGL)
@@ -68,7 +88,7 @@ add_executable(PhysicsSimulationStudio
 )
 
 target_include_directories(PhysicsSimulationStudio PRIVATE src)
-target_link_libraries(PhysicsSimulationStudio PRIVATE Qt6::Widgets)
+target_link_libraries(PhysicsSimulationStudio PRIVATE Qt6::Widgets Eigen3::Eigen)
 
 if(MSVC)
     target_compile_options(PhysicsSimulationStudio PRIVATE /W4 /permissive-)

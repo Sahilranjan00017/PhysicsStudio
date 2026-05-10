@@ -33,15 +33,24 @@ void SimulationLoop::setSpeed(double multiplier)
     speed = std::clamp(multiplier, 0.1, 10.0);
 }
 
+void SimulationLoop::setElectronicsDomain(ElectronicsDomain domain)
+{
+    electronicsDomain = std::move(domain);
+}
+
 void SimulationLoop::tick()
 {
-    if (!running) {
+    if (!running)
         return;
-    }
 
-    const double simulationDt = fixedFrameDt * speed;
-    simulationTime += simulationDt;
+    const double dt = fixedFrameDt * speed;
+    simulationTime += dt;
+
+    // --- Electronics ---
+    if (!electronicsDomain.components.isEmpty())
+        electronicsSolver.solve(electronicsDomain, dt);
+
+    // --- Motion / Optics / Waves: solvers added in Phase 3-4 ---
 
     emit tickComplete(simulationTime);
 }
-

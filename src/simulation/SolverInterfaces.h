@@ -1,9 +1,9 @@
 #pragma once
 
-class ElectronicsDomain;
-class MotionDomain;
-class OpticalDomain;
-class WaveDomain;
+struct ElectronicsDomain;
+struct MotionDomain;
+struct OpticalDomain;
+struct WaveDomain;
 
 class IElectronicsSolver {
 public:

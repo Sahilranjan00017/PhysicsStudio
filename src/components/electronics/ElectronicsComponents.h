@@ -56,6 +56,7 @@ class AmmeterComponent final : public TwoTerminalElectricalComponent {
 
 public:
     explicit AmmeterComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
 };
 
@@ -64,6 +65,7 @@ class VoltmeterComponent final : public TwoTerminalElectricalComponent {
 
 public:
     explicit VoltmeterComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
 };
 

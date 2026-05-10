@@ -3,9 +3,11 @@
 #include "canvas/CanvasView.h"
 #include "components/BaseComponent.h"
 #include "components/ComponentRegistry.h"
+#include "components/Wire.h"
 #include "interaction/UndoRedoStack.h"
 #include "persistence/ProjectDocument.h"
 #include "simulation/SimulationLoop.h"
+#include "simulation/electronics/ElectronicsSolver.h"
 #include "ui/partspanel/PartsPanel.h"
 #include "ui/properties/PropertiesPanel.h"
 
@@ -54,7 +56,16 @@ MainWindow::MainWindow(QWidget* parent)
                 .arg(position.x(), 0, 'f', 0)
                 .arg(position.y(), 0, 'f', 0),
             3000);
+        refreshSimulationDomain();
     });
+
+    // Rebuild domain whenever the scene changes (wires added, parts deleted…).
+    connect(canvasView->graphicsScene(), &QGraphicsScene::changed,
+            this, [this](const QList<QRectF>&) { refreshSimulationDomain(); });
+
+    // After each solver tick, repaint the canvas so live values show up.
+    connect(simulationLoop, &SimulationLoop::tickComplete,
+            this, [this](double) { canvasView->viewport()->update(); });
 }
 
 MainWindow::~MainWindow() = default;
@@ -201,5 +212,22 @@ bool MainWindow::loadModelFrom(const QString& path)
     canvasView->loadScene(document.components, document.wires);
     undoRedoStack->qtStack()->clear();
     propertiesPanel->setComponent(nullptr);
+    refreshSimulationDomain();
     return true;
+}
+
+void MainWindow::refreshSimulationDomain()
+{
+    // Collect all electrical components and wires from the canvas.
+    ElectronicsDomain domain;
+    for (auto* comp : canvasView->components()) {
+        for (auto* pad : comp->pads) {
+            if (pad->domain == DomainType::Electrical) {
+                domain.components.append(comp);
+                break;
+            }
+        }
+    }
+    domain.wires = canvasView->wires();
+    simulationLoop->setElectronicsDomain(std::move(domain));
 }

@@ -143,13 +143,30 @@ AmmeterComponent::AmmeterComponent(QGraphicsItem* parent)
     displayName = "Ammeter";
 }
 
+QRectF AmmeterComponent::boundingRect() const
+{
+    return QRectF(-68.0, -32.0, 136.0, 64.0);  // wider for reading text
+}
+
 void AmmeterComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
 {
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(componentPen(option->state & QStyle::State_Selected));
     painter->setBrush(componentBrush(destroyed));
     drawTerminals(painter);
-    drawCircleWithText(painter, QRectF(-18.0, -18.0, 36.0, 36.0), "A");
+
+    // Show live current reading if simulation is running.
+    const bool hasReading = simState.contains("current");
+    if (hasReading) {
+        const double I = simState["current"].toDouble();
+        // Scale to mA if small.
+        const QString reading = (qAbs(I) < 0.9995)
+            ? QString("%1 mA").arg(I * 1000.0, 0, 'f', 2)
+            : QString("%1 A").arg(I,           0, 'f', 3);
+        drawCircleWithText(painter, QRectF(-28.0, -18.0, 56.0, 36.0), reading);
+    } else {
+        drawCircleWithText(painter, QRectF(-28.0, -18.0, 56.0, 36.0), "A");
+    }
     drawLabel(painter);
 }
 
@@ -160,13 +177,29 @@ VoltmeterComponent::VoltmeterComponent(QGraphicsItem* parent)
     displayName = "Voltmeter";
 }
 
+QRectF VoltmeterComponent::boundingRect() const
+{
+    return QRectF(-68.0, -32.0, 136.0, 64.0);  // wider for reading text
+}
+
 void VoltmeterComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
 {
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(componentPen(option->state & QStyle::State_Selected));
     painter->setBrush(componentBrush(destroyed));
     drawTerminals(painter);
-    drawCircleWithText(painter, QRectF(-18.0, -18.0, 36.0, 36.0), "V");
+
+    // Show live voltage reading if simulation is running.
+    const bool hasReading = simState.contains("voltageDiff");
+    if (hasReading) {
+        const double V = simState["voltageDiff"].toDouble();
+        const QString reading = (qAbs(V) < 0.9995)
+            ? QString("%1 mV").arg(V * 1000.0, 0, 'f', 1)
+            : QString("%1 V").arg(V,           0, 'f', 3);
+        drawCircleWithText(painter, QRectF(-28.0, -18.0, 56.0, 36.0), reading);
+    } else {
+        drawCircleWithText(painter, QRectF(-28.0, -18.0, 56.0, 36.0), "V");
+    }
     drawLabel(painter);
 }
 
