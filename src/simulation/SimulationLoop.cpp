@@ -43,6 +43,17 @@ void SimulationLoop::setMotionDomain(MotionDomain domain)
     motionDomain = std::move(domain);
 }
 
+void SimulationLoop::setOpticalDomain(OpticalDomain domain)
+{
+    opticalDomain = std::move(domain);
+}
+
+void SimulationLoop::traceOpticsOnce()
+{
+    if (!opticalDomain.components.isEmpty())
+        opticalSolver.trace(opticalDomain);
+}
+
 void SimulationLoop::tick()
 {
     if (!running)
@@ -59,7 +70,11 @@ void SimulationLoop::tick()
     if (!motionDomain.bodies.isEmpty())
         motionSolver.step(motionDomain, dt);
 
-    // --- Optics / Waves: solvers added in Phase 4 ---
+    // --- Optics (stateless ray trace — rebuilds ray paths every tick) ---
+    if (!opticalDomain.components.isEmpty())
+        opticalSolver.trace(opticalDomain);
+
+    // --- Waves: solver added in Phase 4b ---
 
     emit tickComplete(simulationTime);
 }

@@ -7,9 +7,11 @@
 #include "components/Wire.h"
 #include "interaction/UndoRedoStack.h"
 #include "persistence/ProjectDocument.h"
+#include "canvas/OpticsOverlay.h"
 #include "simulation/SimulationLoop.h"
 #include "simulation/electronics/ElectronicsSolver.h"
 #include "simulation/motion/MotionSolver.h"
+#include "simulation/optics/OpticalSolver.h"
 #include "ui/partspanel/PartsPanel.h"
 #include "ui/properties/PropertiesPanel.h"
 
@@ -51,6 +53,11 @@ MainWindow::MainWindow(QWidget* parent)
     connectCanvasSelection();
     statusBar()->showMessage("Ready");
 
+    // Create the optics ray-path overlay and add it above all scene items.
+    opticsOverlay = new OpticsOverlay(simulationLoop->opticsSegments());
+    opticsOverlay->setZValue(50.0);
+    canvasView->graphicsScene()->addItem(opticsOverlay);
+
     connect(canvasView, &CanvasView::componentPlaced, this, [this](const QString& typeId, const QPointF& position) {
         statusBar()->showMessage(
             QString("Placed %1 at (%2, %3)")
@@ -70,9 +77,13 @@ MainWindow::MainWindow(QWidget* parent)
                     refreshSimulationDomain();
             });
 
-    // After each solver tick, repaint the canvas so live values show up.
+    // After each solver tick, repaint the canvas so live values show up,
+    // and refresh the optics overlay with the latest ray paths.
     connect(simulationLoop, &SimulationLoop::tickComplete,
-            this, [this](double) { canvasView->viewport()->update(); });
+            this, [this](double) {
+                if (opticsOverlay) opticsOverlay->update();
+                canvasView->viewport()->update();
+            });
 }
 
 MainWindow::~MainWindow() = default;
@@ -227,6 +238,7 @@ void MainWindow::refreshSimulationDomain()
 {
     refreshElectronicsDomain();
     refreshMotionDomain();
+    refreshOpticsDomain();
 }
 
 void MainWindow::refreshElectronicsDomain()
@@ -349,4 +361,20 @@ void MainWindow::refreshMotionDomain()
     }
 
     simulationLoop->setMotionDomain(std::move(domain));
+}
+
+void MainWindow::refreshOpticsDomain()
+{
+    OpticalDomain domain;
+    for (auto* comp : canvasView->components()) {
+        const QString& t = comp->typeId;
+        if (t == "OPT_SRC" || t == "OPT_MIRROR" || t == "OPT_LENS" || t == "OPT_SCREEN")
+            domain.components << comp;
+    }
+    simulationLoop->setOpticalDomain(std::move(domain));
+
+    // Run a static trace immediately so rays are visible even when paused.
+    simulationLoop->traceOpticsOnce();
+    if (opticsOverlay)
+        opticsOverlay->update();
 }

@@ -50,6 +50,8 @@ add_executable(PhysicsSimulationStudio
     src/app/MainWindow.h
     src/canvas/CanvasView.cpp
     src/canvas/CanvasView.h
+    src/canvas/OpticsOverlay.cpp
+    src/canvas/OpticsOverlay.h
     src/components/BaseComponent.cpp
     src/components/BaseComponent.h
     src/components/ComponentMimeTypes.h
@@ -62,6 +64,8 @@ add_executable(PhysicsSimulationStudio
     src/components/electronics/ElectronicsComponents.h
     src/components/motion/MotionComponents.cpp
     src/components/motion/MotionComponents.h
+    src/components/optics/OpticsComponents.cpp
+    src/components/optics/OpticsComponents.h
     src/interaction/AddPartCommand.cpp
     src/interaction/AddPartCommand.h
     src/interaction/AddWireCommand.cpp
@@ -83,6 +87,8 @@ add_executable(PhysicsSimulationStudio
     src/simulation/electronics/ElectronicsSolver.h
     src/simulation/motion/MotionSolver.cpp
     src/simulation/motion/MotionSolver.h
+    src/simulation/optics/OpticalSolver.cpp
+    src/simulation/optics/OpticalSolver.h
     src/ui/partspanel/PartsPanel.cpp
     src/ui/partspanel/PartsPanel.h
     src/ui/properties/PropertiesPanel.cpp

@@ -3,6 +3,7 @@
 #include "components/BaseComponent.h"
 #include "components/electronics/ElectronicsComponents.h"
 #include "components/motion/MotionComponents.h"
+#include "components/optics/OpticsComponents.h"
 
 #include <utility>
 
@@ -57,4 +58,5 @@ void registerCoreComponents(ComponentRegistry& registry)
 
     registerElectronicsComponents(registry);
     registerMotionComponents(registry);
+    registerOpticsComponents(registry);
 }

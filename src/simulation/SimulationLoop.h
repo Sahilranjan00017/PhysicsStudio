@@ -2,6 +2,7 @@
 
 #include "simulation/electronics/ElectronicsSolver.h"
 #include "simulation/motion/MotionSolver.h"
+#include "simulation/optics/OpticalSolver.h"
 
 #include <QObject>
 #include <QTimer>
@@ -29,6 +30,13 @@ public:
     // The caller owns the component/wire pointers; SimulationLoop never deletes them.
     void setElectronicsDomain(ElectronicsDomain domain);
     void setMotionDomain(MotionDomain domain);
+    void setOpticalDomain(OpticalDomain domain);
+
+    // Runs one optical trace pass immediately (e.g. for static preview when paused).
+    void traceOpticsOnce();
+
+    // Read-only access to the latest ray segments — used by OpticsOverlay.
+    const QList<OpticalSegment>& opticsSegments() const { return opticalDomain.segments; }
 
 signals:
     void tickComplete(double simulationTime);
@@ -48,4 +56,7 @@ private:
 
     MotionSolver       motionSolver;
     MotionDomain       motionDomain;
+
+    OpticalSolver      opticalSolver;
+    OpticalDomain      opticalDomain;
 };

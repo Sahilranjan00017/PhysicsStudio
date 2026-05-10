@@ -4,6 +4,7 @@
 #include <QString>
 
 class CanvasView;
+class OpticsOverlay;
 class PropertiesPanel;
 class SimulationLoop;
 class UndoRedoStack;
@@ -20,9 +21,10 @@ private:
     void buildToolbar();
     void buildDocks();
     void connectCanvasSelection();
-    void refreshSimulationDomain();   // rebuilds ALL solver domains (electronics + motion)
+    void refreshSimulationDomain();   // rebuilds ALL solver domains
     void refreshElectronicsDomain();
     void refreshMotionDomain();
+    void refreshOpticsDomain();
     void newModel();
     void openModel();
     void saveModel();
@@ -30,6 +32,7 @@ private:
     bool loadModelFrom(const QString& path);
 
     CanvasView*      canvasView      = nullptr;
+    OpticsOverlay*   opticsOverlay   = nullptr;
     PropertiesPanel* propertiesPanel = nullptr;
     SimulationLoop*  simulationLoop  = nullptr;
     UndoRedoStack*   undoRedoStack   = nullptr;
