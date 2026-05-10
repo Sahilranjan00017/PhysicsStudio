@@ -8,10 +8,12 @@
 #include "interaction/UndoRedoStack.h"
 #include "persistence/ProjectDocument.h"
 #include "canvas/OpticsOverlay.h"
+#include "canvas/WaveFieldOverlay.h"
 #include "simulation/SimulationLoop.h"
 #include "simulation/electronics/ElectronicsSolver.h"
 #include "simulation/motion/MotionSolver.h"
 #include "simulation/optics/OpticalSolver.h"
+#include "simulation/wave/WaveSolver.h"
 #include "ui/partspanel/PartsPanel.h"
 #include "ui/properties/PropertiesPanel.h"
 
@@ -53,10 +55,14 @@ MainWindow::MainWindow(QWidget* parent)
     connectCanvasSelection();
     statusBar()->showMessage("Ready");
 
-    // Create the optics ray-path overlay and add it above all scene items.
+    // Create the optics ray-path overlay (z=50) and wave field overlay (z=40).
     opticsOverlay = new OpticsOverlay(simulationLoop->opticsSegments());
     opticsOverlay->setZValue(50.0);
     canvasView->graphicsScene()->addItem(opticsOverlay);
+
+    waveFieldOverlay = new WaveFieldOverlay(simulationLoop->waveDomain());
+    waveFieldOverlay->setZValue(40.0);
+    canvasView->graphicsScene()->addItem(waveFieldOverlay);
 
     connect(canvasView, &CanvasView::componentPlaced, this, [this](const QString& typeId, const QPointF& position) {
         statusBar()->showMessage(
@@ -78,10 +84,11 @@ MainWindow::MainWindow(QWidget* parent)
             });
 
     // After each solver tick, repaint the canvas so live values show up,
-    // and refresh the optics overlay with the latest ray paths.
+    // and refresh the optics/wave overlays with the latest data.
     connect(simulationLoop, &SimulationLoop::tickComplete,
             this, [this](double) {
-                if (opticsOverlay) opticsOverlay->update();
+                if (opticsOverlay)    opticsOverlay->update();
+                if (waveFieldOverlay) waveFieldOverlay->update();
                 canvasView->viewport()->update();
             });
 }
@@ -239,6 +246,7 @@ void MainWindow::refreshSimulationDomain()
     refreshElectronicsDomain();
     refreshMotionDomain();
     refreshOpticsDomain();
+    refreshWaveDomain();
 }
 
 void MainWindow::refreshElectronicsDomain()
@@ -377,4 +385,26 @@ void MainWindow::refreshOpticsDomain()
     simulationLoop->traceOpticsOnce();
     if (opticsOverlay)
         opticsOverlay->update();
+}
+
+void MainWindow::refreshWaveDomain()
+{
+    WaveDomain domain;
+
+    for (auto* comp : canvasView->components()) {
+        if (comp->typeId == "WAV_SRC")
+            domain.sources << comp;
+        else if (comp->typeId == "WAV_DET")
+            domain.detectors << comp;
+    }
+
+    // Clear detector readings when domain is rebuilt.
+    for (auto* comp : domain.detectors) {
+        comp->simState.remove("amplitude");
+        comp->update();
+    }
+
+    simulationLoop->setWaveDomain(std::move(domain));
+    if (waveFieldOverlay)
+        waveFieldOverlay->update();
 }

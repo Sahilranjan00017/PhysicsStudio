@@ -8,6 +8,7 @@ class OpticsOverlay;
 class PropertiesPanel;
 class SimulationLoop;
 class UndoRedoStack;
+class WaveFieldOverlay;
 
 class MainWindow final : public QMainWindow {
     Q_OBJECT
@@ -25,16 +26,18 @@ private:
     void refreshElectronicsDomain();
     void refreshMotionDomain();
     void refreshOpticsDomain();
+    void refreshWaveDomain();
     void newModel();
     void openModel();
     void saveModel();
     bool saveModelAs(const QString& path);
     bool loadModelFrom(const QString& path);
 
-    CanvasView*      canvasView      = nullptr;
-    OpticsOverlay*   opticsOverlay   = nullptr;
-    PropertiesPanel* propertiesPanel = nullptr;
-    SimulationLoop*  simulationLoop  = nullptr;
-    UndoRedoStack*   undoRedoStack   = nullptr;
+    CanvasView*       canvasView       = nullptr;
+    OpticsOverlay*    opticsOverlay    = nullptr;
+    WaveFieldOverlay* waveFieldOverlay = nullptr;
+    PropertiesPanel*  propertiesPanel  = nullptr;
+    SimulationLoop*   simulationLoop   = nullptr;
+    UndoRedoStack*    undoRedoStack    = nullptr;
     QString currentProjectPath;
 };

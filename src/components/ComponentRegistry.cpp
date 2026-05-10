@@ -4,6 +4,7 @@
 #include "components/electronics/ElectronicsComponents.h"
 #include "components/motion/MotionComponents.h"
 #include "components/optics/OpticsComponents.h"
+#include "components/wave/WaveComponents.h"
 
 #include <utility>
 
@@ -59,4 +60,5 @@ void registerCoreComponents(ComponentRegistry& registry)
     registerElectronicsComponents(registry);
     registerMotionComponents(registry);
     registerOpticsComponents(registry);
+    registerWaveComponents(registry);
 }

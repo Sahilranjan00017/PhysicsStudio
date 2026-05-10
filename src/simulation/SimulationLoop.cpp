@@ -48,6 +48,11 @@ void SimulationLoop::setOpticalDomain(OpticalDomain domain)
     opticalDomain = std::move(domain);
 }
 
+void SimulationLoop::setWaveDomain(WaveDomain domain)
+{
+    m_waveDomain = std::move(domain);
+}
+
 void SimulationLoop::traceOpticsOnce()
 {
     if (!opticalDomain.components.isEmpty())
@@ -74,7 +79,9 @@ void SimulationLoop::tick()
     if (!opticalDomain.components.isEmpty())
         opticalSolver.trace(opticalDomain);
 
-    // --- Waves: solver added in Phase 4b ---
+    // --- Waves (analytical superposition — full field recomputed each tick) ---
+    if (!m_waveDomain.sources.isEmpty())
+        waveSolver.step(m_waveDomain, dt);
 
     emit tickComplete(simulationTime);
 }

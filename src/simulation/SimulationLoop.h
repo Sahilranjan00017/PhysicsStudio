@@ -3,6 +3,7 @@
 #include "simulation/electronics/ElectronicsSolver.h"
 #include "simulation/motion/MotionSolver.h"
 #include "simulation/optics/OpticalSolver.h"
+#include "simulation/wave/WaveSolver.h"
 
 #include <QObject>
 #include <QTimer>
@@ -31,12 +32,16 @@ public:
     void setElectronicsDomain(ElectronicsDomain domain);
     void setMotionDomain(MotionDomain domain);
     void setOpticalDomain(OpticalDomain domain);
+    void setWaveDomain(WaveDomain domain);
 
     // Runs one optical trace pass immediately (e.g. for static preview when paused).
     void traceOpticsOnce();
 
     // Read-only access to the latest ray segments — used by OpticsOverlay.
     const QList<OpticalSegment>& opticsSegments() const { return opticalDomain.segments; }
+
+    // Read-only access to the live wave field — used by WaveFieldOverlay.
+    const WaveDomain& waveDomain() const { return m_waveDomain; }
 
 signals:
     void tickComplete(double simulationTime);
@@ -59,4 +64,7 @@ private:
 
     OpticalSolver      opticalSolver;
     OpticalDomain      opticalDomain;
+
+    WaveSolver         waveSolver;
+    WaveDomain         m_waveDomain;
 };

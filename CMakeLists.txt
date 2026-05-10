@@ -52,6 +52,8 @@ add_executable(PhysicsSimulationStudio
     src/canvas/CanvasView.h
     src/canvas/OpticsOverlay.cpp
     src/canvas/OpticsOverlay.h
+    src/canvas/WaveFieldOverlay.cpp
+    src/canvas/WaveFieldOverlay.h
     src/components/BaseComponent.cpp
     src/components/BaseComponent.h
     src/components/ComponentMimeTypes.h
@@ -66,6 +68,8 @@ add_executable(PhysicsSimulationStudio
     src/components/motion/MotionComponents.h
     src/components/optics/OpticsComponents.cpp
     src/components/optics/OpticsComponents.h
+    src/components/wave/WaveComponents.cpp
+    src/components/wave/WaveComponents.h
     src/interaction/AddPartCommand.cpp
     src/interaction/AddPartCommand.h
     src/interaction/AddWireCommand.cpp
@@ -89,6 +93,8 @@ add_executable(PhysicsSimulationStudio
     src/simulation/motion/MotionSolver.h
     src/simulation/optics/OpticalSolver.cpp
     src/simulation/optics/OpticalSolver.h
+    src/simulation/wave/WaveSolver.cpp
+    src/simulation/wave/WaveSolver.h
     src/ui/partspanel/PartsPanel.cpp
     src/ui/partspanel/PartsPanel.h
     src/ui/properties/PropertiesPanel.cpp
