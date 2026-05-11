@@ -7,6 +7,7 @@ on:
     tags:     ['v*.*.*']
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:   # allow manual trigger from GitHub UI
 
 # Cancel redundant in-progress runs on the same branch.
 concurrency:
