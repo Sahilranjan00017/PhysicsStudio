@@ -159,4 +159,87 @@ public:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
 };
 
+// ---------------------------------------------------------------------------
+// InductorComponent  (ELEC_IND)
+// Backward-Euler companion model: G_eq = dt/L, I_hist current source.
+// Properties: inductance (H)
+// simState  : i_ind (current through inductor, updated each tick)
+// ---------------------------------------------------------------------------
+class InductorComponent final : public TwoTerminalElectricalComponent {
+    Q_OBJECT
+public:
+    explicit InductorComponent(QGraphicsItem* parent = nullptr);
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+};
+
+// ---------------------------------------------------------------------------
+// TransformerComponent  (ELEC_XFMR)
+// Ideal 1:n transformer — secondary stamped as VCVS: Vs = n·Vp.
+// 4 terminals: p1(+), p2(−) primary; s1(+), s2(−) secondary.
+// Properties: ratio (n = Nsecondary/Nprimary)
+// simState  : primaryVoltage, secondaryVoltage, secondaryCurrent
+// ---------------------------------------------------------------------------
+class TransformerComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit TransformerComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    std::array<ConnectionPad, 4> padStorage;  // p1, p2, s1, s2
+};
+
+// ---------------------------------------------------------------------------
+// NPNTransistorComponent  (ELEC_NPN)
+// DC operating-point BJT model: IC = hFE · IB (current-controlled source).
+// 3 terminals: B (base), C (collector), E (emitter).
+// Properties: hFE (current gain β), Vth (base threshold V), Rbe (Ω)
+// simState  : vBE, iC, region ("off"/"active")
+// ---------------------------------------------------------------------------
+class NPNTransistorComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit NPNTransistorComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    std::array<ConnectionPad, 3> padStorage;  // B, C, E
+};
+
+// ---------------------------------------------------------------------------
+// LogicGateComponent  (ELEC_AND / ELEC_OR / ELEC_NOT)
+// Digital gate: inputs read voltage levels; output drives a controlled voltage.
+// 2-input gates (AND, OR): in1, in2, out pads.
+// Single-input NOT: in, out pads.
+// Properties: Vhigh (5.0), Vlow (0.0), Vthreshold (2.5)
+// simState  : in1V, in2V (voltage levels), outV (driven output)
+// ---------------------------------------------------------------------------
+class LogicGateComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit LogicGateComponent(const QString& typeId, QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    std::array<ConnectionPad, 3> padStorage;  // in1, in2 (or in), out
+    int m_numInputs = 2;
+};
+
+// ---------------------------------------------------------------------------
+// OscilloscopeComponent  (ELEC_SCOPE)
+// Two-terminal waveform viewer — identical MNA stamp to voltmeter.
+// Displays a scrolling waveform trace on its body.
+// simState  : voltageDiff (updated each tick by solver)
+// DataLogger feeds ELEC_SCOPE voltageDiff as "scope" channel.
+// ---------------------------------------------------------------------------
+class OscilloscopeComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit OscilloscopeComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    std::array<ConnectionPad, 2> padStorage;  // ch+ and ch-
+};
+
 void registerElectronicsComponents(ComponentRegistry& registry);

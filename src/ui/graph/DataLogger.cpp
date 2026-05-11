@@ -12,10 +12,13 @@ namespace {
 struct ChannelSpec { const char* typeId; const char* key; const char* unit; };
 
 constexpr ChannelSpec CHANNELS[] = {
-    { "ELEC_AMM",   "current",   "A"    },
-    { "ELEC_VOLTM", "voltage",   "V"    },
-    { "MOT_BALL",   "speed",     "px/s" },
-    { "WAV_DET",    "amplitude", "amp"  },
+    { "ELEC_AMM",   "current",      "A"    },
+    { "ELEC_VOLTM", "voltageDiff",  "V"    },  // fix: was "voltage"
+    { "ELEC_SCOPE", "voltageDiff",  "V"    },
+    { "ELEC_IND",   "i_ind",        "A"    },
+    { "MOT_BALL",   "speed",        "px/s" },
+    { "MOT_PENDULUM","angle",       "rad"  },
+    { "WAV_DET",    "amplitude",    "amp"  },
 };
 constexpr int NUM_CHANNELS = static_cast<int>(sizeof(CHANNELS) / sizeof(CHANNELS[0]));
 
