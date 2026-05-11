@@ -23,6 +23,7 @@
 #include <QDockWidget>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QGraphicsItem>
 #include <QGraphicsScene>
 #include <QIODevice>
@@ -32,6 +33,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPointF>
+#include <QShortcut>
 #include <QStatusBar>
 #include <QString>
 #include <QToolBar>
@@ -57,6 +59,7 @@ MainWindow::MainWindow(QWidget* parent)
     buildDocks();
     connectCanvasSelection();
     statusBar()->showMessage("Ready");
+    updateWindowTitle();
 
     // Create the optics ray-path overlay (z=50) and wave field overlay (z=40).
     opticsOverlay = new OpticsOverlay(simulationLoop->opticsSegments());
@@ -66,6 +69,13 @@ MainWindow::MainWindow(QWidget* parent)
     waveFieldOverlay = new WaveFieldOverlay(simulationLoop->waveDomain());
     waveFieldOverlay->setZValue(40.0);
     canvasView->graphicsScene()->addItem(waveFieldOverlay);
+
+    // Space-bar toggles play / pause.
+    auto* spacebar = new QShortcut(Qt::Key_Space, this);
+    connect(spacebar, &QShortcut::activated, this, [this] {
+        if (simulationLoop->isRunning()) simulationLoop->pause();
+        else                             simulationLoop->start();
+    });
 
     connect(canvasView, &CanvasView::componentPlaced, this, [this](const QString& typeId, const QPointF& position) {
         statusBar()->showMessage(
@@ -103,9 +113,12 @@ MainWindow::~MainWindow() = default;
 void MainWindow::buildMenus()
 {
     auto* fileMenu = menuBar()->addMenu("&File");
-    fileMenu->addAction("New Model", this, &MainWindow::newModel);
-    fileMenu->addAction("Open Model", this, &MainWindow::openModel);
-    fileMenu->addAction("Save", this, &MainWindow::saveModel);
+    auto* newAction  = fileMenu->addAction("New Model",  this, &MainWindow::newModel);
+    auto* openAction = fileMenu->addAction("Open Model", this, &MainWindow::openModel);
+    auto* saveAction = fileMenu->addAction("Save",       this, &MainWindow::saveModel);
+    newAction->setShortcut(QKeySequence::New);
+    openAction->setShortcut(QKeySequence::Open);
+    saveAction->setShortcut(QKeySequence::Save);
     fileMenu->addSeparator();
 
     auto* examplesMenu = fileMenu->addMenu("Open Example");
@@ -129,12 +142,48 @@ void MainWindow::buildMenus()
     deleteAction->setShortcut(QKeySequence(Qt::Key_Delete));
 
     auto* simulationMenu = menuBar()->addMenu("&Simulation");
-    simulationMenu->addAction("Play",  simulationLoop, &SimulationLoop::start);
-    simulationMenu->addAction("Pause", simulationLoop, &SimulationLoop::pause);
+    auto* playAction  = simulationMenu->addAction("Play",  simulationLoop, &SimulationLoop::start);
+    auto* pauseAction = simulationMenu->addAction("Pause", simulationLoop, &SimulationLoop::pause);
     simulationMenu->addAction("Reset", this, [this] {
         simulationLoop->reset();
         dataLogger->clearData();
         statusBar()->showMessage("Simulation reset", 2000);
+    });
+    playAction->setShortcut(Qt::Key_F5);
+    pauseAction->setShortcut(Qt::Key_F6);
+
+    auto* helpMenu = menuBar()->addMenu("&Help");
+    helpMenu->addAction("About Physics Studio", this, [this] {
+        QMessageBox::about(this, "About Physics Studio",
+            "<h3>Physics Simulation Studio</h3>"
+            "<p><b>Version 1.0.0</b></p>"
+            "<p>An educational multi-domain physics simulator.</p>"
+            "<p>Supported domains:</p>"
+            "<ul>"
+            "<li><b>Electronics</b> — Modified Nodal Analysis, live voltage &amp; current</li>"
+            "<li><b>Motion</b> — Symplectic Euler, impulse collisions, spring–mass systems</li>"
+            "<li><b>Optics</b> — Geometric ray tracing, thin-lens refraction, mirrors</li>"
+            "<li><b>Waves</b> — Analytical 2-D superposition, interference patterns</li>"
+            "</ul>"
+            "<p>Built with <a href='https://www.qt.io'>Qt 6</a> "
+            "and <a href='https://eigen.tuxfamily.org'>Eigen 3</a>.</p>"
+            "<p>Keyboard shortcuts: "
+            "<b>Space</b> Play/Pause · "
+            "<b>F5</b> Play · <b>F6</b> Pause · "
+            "<b>Del</b> Delete · <b>Ctrl+Z/Y</b> Undo/Redo</p>");
+    });
+    helpMenu->addAction("Keyboard Shortcuts", this, [this] {
+        QMessageBox::information(this, "Keyboard Shortcuts",
+            "Space        Play / Pause\n"
+            "F5           Play\n"
+            "F6           Pause\n"
+            "Ctrl+N       New model\n"
+            "Ctrl+O       Open model\n"
+            "Ctrl+S       Save model\n"
+            "Ctrl+Z       Undo\n"
+            "Ctrl+Y / Ctrl+Shift+Z   Redo\n"
+            "Delete       Delete selected\n"
+            "Ctrl+Scroll  Zoom in / out");
     });
 }
 
@@ -188,12 +237,24 @@ void MainWindow::connectCanvasSelection()
     });
 }
 
+void MainWindow::updateWindowTitle()
+{
+    const QString appName = "Physics Studio";
+    if (currentProjectPath.isEmpty())
+        setWindowTitle(appName + " — untitled");
+    else
+        setWindowTitle(appName + " — " + QFileInfo(currentProjectPath).fileName());
+}
+
 void MainWindow::newModel()
 {
     canvasView->clearComponents();
     undoRedoStack->qtStack()->clear();
+    simulationLoop->pause();
+    dataLogger->clearData();
     currentProjectPath.clear();
     propertiesPanel->setComponent(nullptr);
+    updateWindowTitle();
     statusBar()->showMessage("New model", 3000);
 }
 
@@ -210,6 +271,7 @@ void MainWindow::openModel()
 
     if (loadModelFrom(path)) {
         currentProjectPath = path;
+        updateWindowTitle();
         statusBar()->showMessage(QString("Opened %1").arg(path), 3000);
     }
 }
@@ -231,6 +293,7 @@ void MainWindow::saveModel()
 
     if (saveModelAs(path)) {
         currentProjectPath = path;
+        updateWindowTitle();
         statusBar()->showMessage(QString("Saved %1").arg(path), 3000);
     }
 }
@@ -469,6 +532,6 @@ void MainWindow::openExample(const QString& resourcePath)
     currentProjectPath.clear();
 
     refreshSimulationDomain();
-    statusBar()->showMessage(
-        QString("Example loaded — press Play to start"), 4000);
+    updateWindowTitle();
+    statusBar()->showMessage("Example loaded — press Play to start", 4000);
 }

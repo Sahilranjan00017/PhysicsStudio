@@ -29,6 +29,7 @@ private:
     void refreshMotionDomain();
     void refreshOpticsDomain();
     void refreshWaveDomain();
+    void updateWindowTitle();
     void newModel();
     void openModel();
     void saveModel();

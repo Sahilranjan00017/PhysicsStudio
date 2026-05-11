@@ -2,10 +2,9 @@
 
 #include "components/BaseComponent.h"
 
-#include <QtMath>
-
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 // ---------------------------------------------------------------------------
 // WaveSolver::step
@@ -32,9 +31,9 @@ void WaveSolver::step(WaveDomain& domain, double dt)
         const double amp      = src->properties.value("amplitude", 1.0).toDouble();
         const double phaseDeg = src->properties.value("phase",     0.0).toDouble();
 
-        const double omega    = 2.0 * M_PI * freq;
+        const double omega    = 2.0 * std::numbers::pi * freq;
         const double k        = omega / v;                         // rad / px
-        const double phaseRad = phaseDeg * M_PI / 180.0;
+        const double phaseRad = phaseDeg * std::numbers::pi / 180.0;
 
         // Pre-compute the time-dependent terms (constant per row).
         const double sinOmegaT = std::sin(omega * t + phaseRad);
