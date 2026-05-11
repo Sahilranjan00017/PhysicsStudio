@@ -21,16 +21,19 @@ class BaseComponent;
 // WaveFieldOverlay reads field, cols, rows, gridSize to render the pattern.
 // ---------------------------------------------------------------------------
 struct WaveDomain {
-    QList<BaseComponent*> sources;    // WaveSourceComponent / WaveSoundComponent objects
-    QList<BaseComponent*> detectors;  // WaveDetectorComponent objects
-    QList<BaseComponent*> barriers;   // WaveBarrierComponent objects (Huygens secondary sources)
+    QList<BaseComponent*> sources;      // WAV_SRC, WAV_SOUND, WAV_RIPPLE
+    QList<BaseComponent*> detectors;    // WAV_DET
+    QList<BaseComponent*> barriers;     // WAV_BARRIER (Huygens secondary sources)
+    QList<BaseComponent*> walls;        // WAV_WALL    (image-source reflection)
+    QList<BaseComponent*> absorbers;    // WAV_ABSORBER (field-damping regions)
+    QList<BaseComponent*> planeSources; // WAV_PLANE   (line-array source)
 
-    std::vector<float> field;         // amplitude grid, row-major, size cols×rows
-    int    cols      = 200;           // grid width  (scene width  / gridSize)
-    int    rows      = 134;           // grid height (scene height / gridSize)
-    double gridSize  = 12.0;          // pixels per grid cell
-    double simTime   = 0.0;           // accumulated time (seconds)
-    double waveSpeed = 200.0;         // px / s — governs wavelength λ = v/f
+    std::vector<float> field;           // amplitude grid, row-major, size cols×rows
+    int    cols      = 200;             // grid width  (scene width  / gridSize)
+    int    rows      = 134;             // grid height (scene height / gridSize)
+    double gridSize  = 12.0;            // pixels per grid cell
+    double simTime   = 0.0;             // accumulated time (seconds)
+    double waveSpeed = 200.0;           // px / s — governs wavelength λ = v/f
 };
 
 // ---------------------------------------------------------------------------

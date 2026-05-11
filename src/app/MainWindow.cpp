@@ -19,7 +19,11 @@
 #include "ui/partspanel/PartsPanel.h"
 #include "ui/properties/PropertiesPanel.h"
 
+#include <cmath>
+
 #include <QAction>
+#include <QCloseEvent>
+#include <QComboBox>
 #include <QDockWidget>
 #include <QFile>
 #include <QFileDialog>
@@ -29,10 +33,12 @@
 #include <QIODevice>
 #include <QJsonDocument>
 #include <QKeySequence>
+#include <QLabel>
 #include <QList>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPointF>
+#include <QRectF>
 #include <QShortcut>
 #include <QStatusBar>
 #include <QString>
@@ -85,6 +91,8 @@ MainWindow::MainWindow(QWidget* parent)
                 .arg(position.y(), 0, 'f', 0),
             3000);
         refreshSimulationDomain();
+        m_dirty = true;
+        updateWindowTitle();
     });
 
     // Rebuild domains whenever the scene changes structurally.
@@ -92,8 +100,11 @@ MainWindow::MainWindow(QWidget* parent)
     // each tick, which would trigger changed() and reset physics state.
     connect(canvasView->graphicsScene(), &QGraphicsScene::changed,
             this, [this](const QList<QRectF>&) {
-                if (!simulationLoop->isRunning())
+                if (!simulationLoop->isRunning()) {
                     refreshSimulationDomain();
+                    m_dirty = true;
+                    updateWindowTitle();
+                }
             });
 
     // After each solver tick, repaint the canvas so live values show up,
@@ -110,37 +121,117 @@ MainWindow::MainWindow(QWidget* parent)
 
 MainWindow::~MainWindow() = default;
 
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    if (m_dirty) {
+        const auto btn = QMessageBox::question(
+            this,
+            "Unsaved Changes",
+            "The current model has unsaved changes.\n"
+            "Do you want to save before closing?",
+            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+            QMessageBox::Save);
+
+        if (btn == QMessageBox::Save) {
+            saveModel();
+            if (m_dirty) {        // user cancelled the save dialog
+                event->ignore();
+                return;
+            }
+        } else if (btn == QMessageBox::Cancel) {
+            event->ignore();
+            return;
+        }
+    }
+    QMainWindow::closeEvent(event);
+}
+
+void MainWindow::fitView()
+{
+    const QRectF bounds = canvasView->graphicsScene()->itemsBoundingRect();
+    const QRectF target = bounds.isEmpty()
+        ? canvasView->graphicsScene()->sceneRect()
+        : bounds.adjusted(-60.0, -60.0, 60.0, 60.0);
+    canvasView->fitInView(target, Qt::KeepAspectRatio);
+}
+
 void MainWindow::buildMenus()
 {
-    auto* fileMenu = menuBar()->addMenu("&File");
+    // ── File ─────────────────────────────────────────────────────────────────
+    auto* fileMenu  = menuBar()->addMenu("&File");
     auto* newAction  = fileMenu->addAction("New Model",  this, &MainWindow::newModel);
     auto* openAction = fileMenu->addAction("Open Model", this, &MainWindow::openModel);
     auto* saveAction = fileMenu->addAction("Save",       this, &MainWindow::saveModel);
+    auto* saveAsAction = fileMenu->addAction("Save As…", this, &MainWindow::saveModelAsDialog);
     newAction->setShortcut(QKeySequence::New);
     openAction->setShortcut(QKeySequence::Open);
     saveAction->setShortcut(QKeySequence::Save);
+    saveAsAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S));
     fileMenu->addSeparator();
 
     auto* examplesMenu = fileMenu->addMenu("Open Example");
+
+    // Electronics examples
     examplesMenu->addAction("Electronics — Voltage Divider", this, [this] {
         openExample(":/examples/electronics_divider.pss");
     });
+    examplesMenu->addAction("Electronics — RC Filter", this, [this] {
+        openExample(":/examples/electronics_rc_filter.pss");
+    });
+    examplesMenu->addAction("Electronics — NPN Transistor Switch", this, [this] {
+        openExample(":/examples/electronics_transistor.pss");
+    });
+
+    // Motion examples
+    examplesMenu->addSeparator();
     examplesMenu->addAction("Motion — Bouncing Balls", this, [this] {
         openExample(":/examples/motion_bounce.pss");
     });
+    examplesMenu->addAction("Motion — Pendulum", this, [this] {
+        openExample(":/examples/motion_pendulum.pss");
+    });
+
+    // Optics examples
+    examplesMenu->addSeparator();
+    examplesMenu->addAction("Optics — Lens Focusing", this, [this] {
+        openExample(":/examples/optics_lens.pss");
+    });
+
+    // Wave examples
+    examplesMenu->addSeparator();
     examplesMenu->addAction("Waves — Two-Source Interference", this, [this] {
         openExample(":/examples/waves_interference.pss");
+    });
+    examplesMenu->addAction("Waves — Diffraction & Ripple", this, [this] {
+        openExample(":/examples/waves_ripple.pss");
     });
 
     fileMenu->addSeparator();
     fileMenu->addAction("Exit", this, &QWidget::close);
 
+    // ── Edit ─────────────────────────────────────────────────────────────────
     auto* editMenu = menuBar()->addMenu("&Edit");
     editMenu->addAction(undoRedoStack->qtStack()->createUndoAction(this, "Undo"));
     editMenu->addAction(undoRedoStack->qtStack()->createRedoAction(this, "Redo"));
-    auto* deleteAction = editMenu->addAction("Delete", canvasView, &CanvasView::deleteSelectedComponents);
+    editMenu->addSeparator();
+    auto* deleteAction = editMenu->addAction("Delete Selected",
+                                             canvasView,
+                                             &CanvasView::deleteSelectedComponents);
     deleteAction->setShortcut(QKeySequence(Qt::Key_Delete));
 
+    // ── View ─────────────────────────────────────────────────────────────────
+    auto* viewMenu  = menuBar()->addMenu("&View");
+    auto* fitAction = viewMenu->addAction("Fit in View", this, &MainWindow::fitView);
+    fitAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
+    viewMenu->addSeparator();
+    auto* zoomInAction  = viewMenu->addAction("Zoom In",  this,
+        [this] { canvasView->scale(1.25, 1.25); });
+    auto* zoomOutAction = viewMenu->addAction("Zoom Out", this,
+        [this] { canvasView->scale(0.80, 0.80); });
+    zoomInAction->setShortcut(QKeySequence::ZoomIn);
+    zoomOutAction->setShortcut(QKeySequence::ZoomOut);
+
+    // ── Simulation ────────────────────────────────────────────────────────────
     auto* simulationMenu = menuBar()->addMenu("&Simulation");
     auto* playAction  = simulationMenu->addAction("Play",  simulationLoop, &SimulationLoop::start);
     auto* pauseAction = simulationMenu->addAction("Pause", simulationLoop, &SimulationLoop::pause);
@@ -152,57 +243,95 @@ void MainWindow::buildMenus()
     playAction->setShortcut(Qt::Key_F5);
     pauseAction->setShortcut(Qt::Key_F6);
 
+    // ── Help ─────────────────────────────────────────────────────────────────
     auto* helpMenu = menuBar()->addMenu("&Help");
     helpMenu->addAction("About Physics Studio", this, [this] {
         QMessageBox::about(this, "About Physics Studio",
             "<h3>Physics Simulation Studio</h3>"
             "<p><b>Version 1.0.0</b></p>"
             "<p>An educational multi-domain physics simulator.</p>"
-            "<p>Supported domains:</p>"
+            "<p>Supported domains &amp; components:</p>"
             "<ul>"
-            "<li><b>Electronics</b> — Modified Nodal Analysis, live voltage &amp; current</li>"
-            "<li><b>Motion</b> — Symplectic Euler, impulse collisions, spring–mass systems</li>"
-            "<li><b>Optics</b> — Geometric ray tracing, thin-lens refraction, mirrors</li>"
-            "<li><b>Waves</b> — Analytical 2-D superposition, interference patterns</li>"
+            "<li><b>Electronics</b> — MNA solver: resistors, capacitors, inductors, "
+            "voltage/current sources, diodes, transistors, op-amps</li>"
+            "<li><b>Motion</b> — Symplectic Euler: balls, blocks, springs, ropes, "
+            "pendulums, ramps, pulleys, wheels, thrusters, friction &amp; drag</li>"
+            "<li><b>Optics</b> — Ray tracing: lenses, mirrors (flat &amp; curved), "
+            "prisms, filters, slits, diffraction gratings, beam splitters, polarisers</li>"
+            "<li><b>Waves</b> — 2-D superposition: point sources, plane waves, "
+            "barriers/slits, reflective walls, absorbers, ripple pulses</li>"
             "</ul>"
             "<p>Built with <a href='https://www.qt.io'>Qt 6</a> "
             "and <a href='https://eigen.tuxfamily.org'>Eigen 3</a>.</p>"
-            "<p>Keyboard shortcuts: "
-            "<b>Space</b> Play/Pause · "
-            "<b>F5</b> Play · <b>F6</b> Pause · "
-            "<b>Del</b> Delete · <b>Ctrl+Z/Y</b> Undo/Redo</p>");
+            "<p><b>Shortcuts:</b> Space Play/Pause · F5 Play · F6 Pause · "
+            "R Rotate selection · Ctrl+0 Fit · Del Delete</p>");
     });
     helpMenu->addAction("Keyboard Shortcuts", this, [this] {
         QMessageBox::information(this, "Keyboard Shortcuts",
-            "Space        Play / Pause\n"
-            "F5           Play\n"
-            "F6           Pause\n"
-            "Ctrl+N       New model\n"
-            "Ctrl+O       Open model\n"
-            "Ctrl+S       Save model\n"
-            "Ctrl+Z       Undo\n"
-            "Ctrl+Y / Ctrl+Shift+Z   Redo\n"
-            "Delete       Delete selected\n"
-            "Ctrl+Scroll  Zoom in / out");
+            "Space              Play / Pause\n"
+            "F5                 Play\n"
+            "F6                 Pause\n"
+            "R                  Rotate selected component 15°\n"
+            "\n"
+            "Ctrl+N             New model\n"
+            "Ctrl+O             Open model\n"
+            "Ctrl+S             Save model\n"
+            "Ctrl+Shift+S       Save As…\n"
+            "Ctrl+0             Fit in view\n"
+            "Ctrl++             Zoom in\n"
+            "Ctrl+-             Zoom out\n"
+            "Ctrl+Scroll        Zoom in / out\n"
+            "\n"
+            "Ctrl+Z             Undo\n"
+            "Ctrl+Y             Redo\n"
+            "Delete             Delete selected");
     });
 }
 
 void MainWindow::buildToolbar()
 {
     auto* toolbar = addToolBar("Main");
+    toolbar->setObjectName("mainToolbar");
+
+    // ── File controls ────────────────────────────────────────────────────────
     toolbar->addAction("New",  this, &MainWindow::newModel);
     toolbar->addAction("Open", this, &MainWindow::openModel);
     toolbar->addAction("Save", this, &MainWindow::saveModel);
     toolbar->addSeparator();
+
+    // ── Undo / Redo ──────────────────────────────────────────────────────────
     toolbar->addAction(undoRedoStack->qtStack()->createUndoAction(this, "Undo"));
     toolbar->addAction(undoRedoStack->qtStack()->createRedoAction(this, "Redo"));
     toolbar->addSeparator();
-    toolbar->addAction("Play",  simulationLoop, &SimulationLoop::start);
-    toolbar->addAction("Pause", simulationLoop, &SimulationLoop::pause);
-    toolbar->addAction("Reset", this, [this] {
+
+    // ── Simulation controls ──────────────────────────────────────────────────
+    toolbar->addAction("▶ Play",  simulationLoop, &SimulationLoop::start);
+    toolbar->addAction("⏸ Pause", simulationLoop, &SimulationLoop::pause);
+    toolbar->addAction("↺ Reset", this, [this] {
         simulationLoop->reset();
         dataLogger->clearData();
     });
+    toolbar->addSeparator();
+
+    // ── Simulation speed ─────────────────────────────────────────────────────
+    toolbar->addWidget(new QLabel("Speed: "));
+    auto* speedCombo = new QComboBox();
+    speedCombo->addItem("0.25×", 0.25);
+    speedCombo->addItem("0.5×",  0.50);
+    speedCombo->addItem("1×",    1.00);
+    speedCombo->addItem("2×",    2.00);
+    speedCombo->addItem("4×",    4.00);
+    speedCombo->setCurrentIndex(2);   // default: 1×
+    speedCombo->setToolTip("Simulation speed multiplier");
+    connect(speedCombo, &QComboBox::currentIndexChanged,
+            this, [this, speedCombo](int) {
+                simulationLoop->setSpeed(speedCombo->currentData().toDouble());
+            });
+    toolbar->addWidget(speedCombo);
+    toolbar->addSeparator();
+
+    // ── View controls ────────────────────────────────────────────────────────
+    toolbar->addAction("Fit", this, &MainWindow::fitView)->setToolTip("Fit in view (Ctrl+0)");
 }
 
 void MainWindow::buildDocks()
@@ -239,27 +368,63 @@ void MainWindow::connectCanvasSelection()
 
 void MainWindow::updateWindowTitle()
 {
-    const QString appName = "Physics Studio";
-    if (currentProjectPath.isEmpty())
-        setWindowTitle(appName + " — untitled");
-    else
-        setWindowTitle(appName + " — " + QFileInfo(currentProjectPath).fileName());
+    const QString appName  = "Physics Studio";
+    const QString fileName = currentProjectPath.isEmpty()
+        ? QString("untitled")
+        : QFileInfo(currentProjectPath).fileName();
+    const QString dirty    = m_dirty ? QString(" *") : QString();
+    setWindowTitle(appName + " — " + fileName + dirty);
 }
 
 void MainWindow::newModel()
 {
+    if (m_dirty) {
+        const auto btn = QMessageBox::question(
+            this,
+            "Unsaved Changes",
+            "The current model has unsaved changes.\n"
+            "Do you want to save before creating a new model?",
+            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+            QMessageBox::Save);
+
+        if (btn == QMessageBox::Save) {
+            saveModel();
+            if (m_dirty) return;   // save was cancelled
+        } else if (btn == QMessageBox::Cancel) {
+            return;
+        }
+    }
+
     canvasView->clearComponents();
     undoRedoStack->qtStack()->clear();
     simulationLoop->pause();
     dataLogger->clearData();
     currentProjectPath.clear();
     propertiesPanel->setComponent(nullptr);
+    m_dirty = false;
     updateWindowTitle();
     statusBar()->showMessage("New model", 3000);
 }
 
 void MainWindow::openModel()
 {
+    if (m_dirty) {
+        const auto btn = QMessageBox::question(
+            this,
+            "Unsaved Changes",
+            "The current model has unsaved changes.\n"
+            "Do you want to save before opening another model?",
+            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+            QMessageBox::Save);
+
+        if (btn == QMessageBox::Save) {
+            saveModel();
+            if (m_dirty) return;
+        } else if (btn == QMessageBox::Cancel) {
+            return;
+        }
+    }
+
     const QString path = QFileDialog::getOpenFileName(
         this,
         "Open Physics Simulation Studio Model",
@@ -271,6 +436,7 @@ void MainWindow::openModel()
 
     if (loadModelFrom(path)) {
         currentProjectPath = path;
+        m_dirty = false;
         updateWindowTitle();
         statusBar()->showMessage(QString("Opened %1").arg(path), 3000);
     }
@@ -293,6 +459,26 @@ void MainWindow::saveModel()
 
     if (saveModelAs(path)) {
         currentProjectPath = path;
+        m_dirty = false;
+        updateWindowTitle();
+        statusBar()->showMessage(QString("Saved %1").arg(path), 3000);
+    }
+}
+
+void MainWindow::saveModelAsDialog()
+{
+    const QString path = QFileDialog::getSaveFileName(
+        this,
+        "Save Physics Simulation Studio Model As",
+        currentProjectPath,
+        "Physics Simulation Studio (*.pss);;JSON (*.json)");
+
+    if (path.isEmpty())
+        return;
+
+    if (saveModelAs(path)) {
+        currentProjectPath = path;
+        m_dirty = false;
         updateWindowTitle();
         statusBar()->showMessage(QString("Saved %1").arg(path), 3000);
     }
@@ -333,6 +519,7 @@ bool MainWindow::loadModelFrom(const QString& path)
     undoRedoStack->qtStack()->clear();
     propertiesPanel->setComponent(nullptr);
     refreshSimulationDomain();
+    m_dirty = false;      // loading is not a user edit — clear the flag set by loadScene
     return true;
 }
 
@@ -391,10 +578,36 @@ void MainWindow::refreshMotionDomain()
             body.mass       = comp->properties.value("mass",        1.0).toDouble();
             body.radius     = comp->properties.value("radius",     20.0).toDouble();
             body.restitution= comp->properties.value("restitution",  0.8).toDouble();
+            body.friction   = comp->properties.value("friction",    0.0).toDouble();
+            body.airDrag    = comp->properties.value("airDrag",     0.0).toDouble();
             body.fixed      = false;
             body.pos        = comp->pos();
             body.vel        = QPointF(comp->properties.value("velocityX", 0.0).toDouble(),
                                       comp->properties.value("velocityY", 0.0).toDouble());
+            bodyIndex[comp] = domain.bodies.size();
+            domain.bodies.append(body);
+
+            comp->simState.remove("vx");
+            comp->simState.remove("vy");
+            comp->simState.remove("speed");
+            comp->update();
+
+        } else if (comp->typeId == "MOT_WHEEL") {
+            MotionBody body;
+            body.component  = comp;
+            body.shape      = MotionBody::Shape::Ball;   // circle shape for collision
+            body.isWheel    = true;
+            body.mass       = comp->properties.value("mass",        2.0).toDouble();
+            body.radius     = comp->properties.value("radius",     24.0).toDouble();
+            body.restitution= comp->properties.value("restitution",  0.5).toDouble();
+            body.friction   = comp->properties.value("friction",    0.15).toDouble();
+            body.fixed      = false;
+            body.pos        = comp->pos();
+            body.vel        = QPointF(comp->properties.value("velocityX", 0.0).toDouble(),
+                                      comp->properties.value("velocityY", 0.0).toDouble());
+            // Restore rolling angle from simState if simulation was paused.
+            body.angle      = comp->simState.value("angle", 0.0).toDouble();
+            body.angularVel = comp->simState.value("angularVel", 0.0).toDouble();
             bodyIndex[comp] = domain.bodies.size();
             domain.bodies.append(body);
 
@@ -411,18 +624,22 @@ void MainWindow::refreshMotionDomain()
             body.halfW      = comp->properties.value("halfW",      40.0).toDouble();
             body.halfH      = comp->properties.value("halfH",      20.0).toDouble();
             body.restitution= comp->properties.value("restitution",  0.5).toDouble();
+            body.friction   = comp->properties.value("friction",    0.0).toDouble();
             body.fixed      = comp->properties.value("fixed", false).toBool() || body.mass <= 0.0;
             body.pos        = comp->pos();
             body.vel        = QPointF(0.0, 0.0);
             bodyIndex[comp] = domain.bodies.size();
             domain.bodies.append(body);
 
-        } else if (comp->typeId == "MOT_ANCHOR") {
+        } else if (comp->typeId == "MOT_ANCHOR" || comp->typeId == "MOT_PULLEY") {
+            // Both anchors and pulleys act as fixed immovable points.
             MotionBody body;
             body.component  = comp;
             body.shape      = MotionBody::Shape::Ball;
             body.mass       = 1.0;
-            body.radius     = 6.0;
+            body.radius     = (comp->typeId == "MOT_PULLEY")
+                                  ? comp->properties.value("radius", 24.0).toDouble()
+                                  : 6.0;
             body.restitution= 1.0;
             body.fixed      = true;
             body.pos        = comp->pos();
@@ -504,6 +721,34 @@ void MainWindow::refreshMotionDomain()
         domain.ramps.append(ramp);
     }
 
+    // --- Pass 5: build thrusters. ---
+    for (auto* comp : canvasView->components()) {
+        if (comp->typeId != "MOT_THRUSTER") continue;
+
+        const double forceMag = comp->properties.value("force", 500.0).toDouble();
+        const double angleDeg = comp->properties.value("angle",   0.0).toDouble();
+        const double angleRad = angleDeg * M_PI / 180.0;
+
+        // angle=0 → upward (−Y); convert to world-space components.
+        MotionThruster thr;
+        thr.component = comp;
+        thr.forceX    =  forceMag * std::sin(angleRad);
+        thr.forceY    = -forceMag * std::cos(angleRad);
+
+        // Resolve the connected body via the "attach" pad.
+        const ConnectionPad* pad = comp->padById("attach");
+        thr.bodyIdx = -1;
+        if (pad && !pad->connectedWires.isEmpty()) {
+            const Wire* wire = pad->connectedWires.first();
+            BaseComponent* other = (wire->startPad == pad)
+                ? wire->endComponent : wire->startComponent;
+            if (other && bodyIndex.contains(other))
+                thr.bodyIdx = bodyIndex[other];
+        }
+
+        domain.thrusters.append(thr);
+    }
+
     simulationLoop->setMotionDomain(std::move(domain));
 }
 
@@ -512,9 +757,10 @@ void MainWindow::refreshOpticsDomain()
     OpticalDomain domain;
     for (auto* comp : canvasView->components()) {
         const QString& t = comp->typeId;
-        if (t == "OPT_SRC"    || t == "OPT_MIRROR" || t == "OPT_LENS"
-         || t == "OPT_SCREEN" || t == "OPT_PRISM"  || t == "OPT_FILTER"
-         || t == "OPT_SLIT")
+        if (t == "OPT_SRC"      || t == "OPT_MIRROR"  || t == "OPT_LENS"
+         || t == "OPT_SCREEN"  || t == "OPT_PRISM"   || t == "OPT_FILTER"
+         || t == "OPT_SLIT"    || t == "OPT_CONCAVE"  || t == "OPT_GRATING"
+         || t == "OPT_SPLITTER"|| t == "OPT_POLARISER")
             domain.components << comp;
     }
     simulationLoop->setOpticalDomain(std::move(domain));
@@ -530,12 +776,19 @@ void MainWindow::refreshWaveDomain()
     WaveDomain domain;
 
     for (auto* comp : canvasView->components()) {
-        if (comp->typeId == "WAV_SRC" || comp->typeId == "WAV_SOUND")
+        const QString& t = comp->typeId;
+        if (t == "WAV_SRC" || t == "WAV_SOUND" || t == "WAV_RIPPLE")
             domain.sources << comp;
-        else if (comp->typeId == "WAV_DET")
+        else if (t == "WAV_DET")
             domain.detectors << comp;
-        else if (comp->typeId == "WAV_BARRIER")
+        else if (t == "WAV_BARRIER")
             domain.barriers << comp;
+        else if (t == "WAV_WALL")
+            domain.walls << comp;
+        else if (t == "WAV_ABSORBER")
+            domain.absorbers << comp;
+        else if (t == "WAV_PLANE")
+            domain.planeSources << comp;
     }
 
     // Clear detector readings when domain is rebuilt.
@@ -574,6 +827,7 @@ void MainWindow::openExample(const QString& resourcePath)
     currentProjectPath.clear();
 
     refreshSimulationDomain();
+    m_dirty = false;      // opening an example is not a "dirty" change
     updateWindowTitle();
     statusBar()->showMessage("Example loaded — press Play to start", 4000);
 }

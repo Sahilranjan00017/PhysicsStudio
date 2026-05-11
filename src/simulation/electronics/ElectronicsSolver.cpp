@@ -158,7 +158,9 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
         const QString& t = comp->typeId;
         if (t == "ELEC_VSRC" || t == "ELEC_AC"
          || t == "ELEC_XFMR"
-         || t == "ELEC_AND"  || t == "ELEC_OR" || t == "ELEC_NOT") {
+         || t == "ELEC_AND"  || t == "ELEC_OR"  || t == "ELEC_NOT"
+         || t == "ELEC_NAND" || t == "ELEC_NOR"  || t == "ELEC_XOR"
+         || t == "ELEC_OPAMP") {
             vsources.append(comp);
             ++m;
         }
@@ -320,6 +322,100 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
                 if (E >= 0) b(E) += IC;
             }
         }
+        // ── PNP Transistor: Rbe resistor + IC controlled current source ──
+        // Active when V_EB = V_E − V_B > Vth. Current: IC = hFE·IB, flows E→C.
+        else if (type == "ELEC_PNP") {
+            if (comp->pads.size() < 3) continue;
+            const double hFE = comp->properties.value("hFE",  100.0).toDouble();
+            const double Vth = comp->properties.value("Vth",    0.6).toDouble();
+            const double Rbe = comp->properties.value("Rbe", 1000.0).toDouble();
+
+            // Pad order: B=0, C=1, E=2
+            const int B = compress(nodeOf(comp->pads[0], nodeMap));
+            const int C = compress(nodeOf(comp->pads[1], nodeMap));
+            const int E = compress(nodeOf(comp->pads[2], nodeMap));
+
+            // Stamp E-B resistor (base current path through emitter-base junction).
+            const double G_be = 1.0 / std::max(Rbe, 1e-9);
+            if (E >= 0) G(E, E) += G_be;
+            if (B >= 0) G(B, B) += G_be;
+            if (E >= 0 && B >= 0) { G(E, B) -= G_be; G(B, E) -= G_be; }
+
+            // Controlled current source IC = hFE·IB from emitter to collector.
+            const double V_eb_prev = comp->simState.value("vEB", 0.0).toDouble();
+            if (V_eb_prev >= Vth) {
+                const double IB = (V_eb_prev - Vth) / Rbe;
+                const double IC = hFE * IB;
+                if (E >= 0) b(E) -= IC;   // current leaves emitter
+                if (C >= 0) b(C) += IC;   // current enters collector
+            }
+        }
+        // ── Zener Diode: piecewise-linear forward + reverse-breakdown model ──
+        else if (type == "ELEC_ZENER") {
+            const double Vf   = comp->properties.value("forwardVoltage", 0.7).toDouble();
+            const double Vz   = comp->properties.value("zenerVoltage",   5.1).toDouble();
+            const double Ron  = comp->properties.value("onResistance",   0.5).toDouble();
+            constexpr double Roff  = 1e8;
+            constexpr double Rz_on = 1.0;   // low resistance in Zener breakdown
+
+            if (comp->pads.size() < 2) continue;
+            const int a     = compress(nodeOf(comp->pads[0], nodeMap));
+            const int b_idx = compress(nodeOf(comp->pads[1], nodeMap));
+
+            const double V_prev = comp->simState.value("voltageDiff", 0.0).toDouble();
+
+            double G_val;
+            double Ioffset = 0.0;
+            bool   haveOffset = false;
+
+            if (V_prev > Vf * 0.5) {
+                // Forward biased: same as regular diode.
+                G_val  = 1.0 / Ron;
+                Ioffset = G_val * Vf;
+                haveOffset = true;
+            } else if (V_prev < -(Vz * 0.5)) {
+                // Reverse breakdown: clamp at −Vz.
+                G_val   = 1.0 / Rz_on;
+                Ioffset = -G_val * Vz;   // negative offset → Va − Vb approaches −Vz
+                haveOffset = true;
+            } else {
+                G_val = 1.0 / Roff;
+            }
+
+            if (a >= 0)     G(a,     a    ) += G_val;
+            if (b_idx >= 0) G(b_idx, b_idx) += G_val;
+            if (a >= 0 && b_idx >= 0) {
+                G(a,     b_idx) -= G_val;
+                G(b_idx, a    ) -= G_val;
+            }
+            if (haveOffset) {
+                if (a >= 0)     b(a)     += Ioffset;
+                if (b_idx >= 0) b(b_idx) -= Ioffset;
+            }
+        }
+        // ── Potentiometer: two series resistors sharing the wiper node ──
+        else if (type == "ELEC_POT") {
+            const double R_total = std::max(comp->properties.value("resistance", 10000.0).toDouble(), 1.0);
+            const double pos     = std::clamp(comp->properties.value("position", 0.5).toDouble(), 0.001, 0.999);
+
+            if (comp->pads.size() < 3) continue;
+            const int pa = compress(nodeOf(comp->pads[0], nodeMap));   // a
+            const int pw = compress(nodeOf(comp->pads[1], nodeMap));   // wiper
+            const int pb = compress(nodeOf(comp->pads[2], nodeMap));   // b
+
+            const double Gaw = 1.0 / (pos         * R_total);
+            const double Gwb = 1.0 / ((1.0 - pos) * R_total);
+
+            // Stamp a–wiper segment.
+            if (pa >= 0) G(pa, pa) += Gaw;
+            if (pw >= 0) G(pw, pw) += Gaw;
+            if (pa >= 0 && pw >= 0) { G(pa, pw) -= Gaw; G(pw, pa) -= Gaw; }
+
+            // Stamp wiper–b segment.
+            if (pw >= 0) G(pw, pw) += Gwb;
+            if (pb >= 0) G(pb, pb) += Gwb;
+            if (pw >= 0 && pb >= 0) { G(pw, pb) -= Gwb; G(pb, pw) -= Gwb; }
+        }
         // ── Oscilloscope — identical to voltmeter (very high R) ──
         else if (type == "ELEC_SCOPE") {
             const double R   = comp->properties.value("inputResistance", 1e9).toDouble();
@@ -379,8 +475,31 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
             if (p2 >= 0) G(p2, p2) += Gleak;
             if (p1 >= 0 && p2 >= 0) { G(p1, p2) -= Gleak; G(p2, p1) -= Gleak; }
         }
+        // ── Op-Amp: VCVS with high gain, output clamped to supply rails ────
+        else if (t == "ELEC_OPAMP") {
+            if (comp->pads.size() < 3) continue;
+            const double A    = comp->properties.value("gain",       100000.0).toDouble();
+            const double Vpos = comp->properties.value("supplyPos",      15.0).toDouble();
+            const double Vneg = comp->properties.value("supplyNeg",     -15.0).toDouble();
+
+            // Read last tick's input voltages to compute output this tick.
+            const double vP   = comp->simState.value("vPlus",  0.0).toDouble();
+            const double vM   = comp->simState.value("vMinus", 0.0).toDouble();
+            const double Eraw = A * (vP - vM);
+            const double E    = std::clamp(Eraw, Vneg, Vpos);
+            comp->simState["outV"] = E;
+
+            // Stamp output as voltage source from out node to ground.
+            const int out_a = compress(nodeOf(comp->pads[2], nodeMap));
+            if (out_a >= 0) {
+                G(out_a, row) += 1.0;
+                G(row, out_a) += 1.0;
+            }
+            b(row) = E;
+        }
         // ── Logic gates: output pad driven to Vhigh or Vlow vs GND ─────
-        else if (t == "ELEC_AND" || t == "ELEC_OR" || t == "ELEC_NOT") {
+        else if (t == "ELEC_AND" || t == "ELEC_OR"  || t == "ELEC_NOT"
+              || t == "ELEC_NAND"|| t == "ELEC_NOR"  || t == "ELEC_XOR") {
             if (comp->pads.size() < 2) continue;
             const double Vh   = comp->properties.value("Vhigh",      5.0).toDouble();
             const double Vl   = comp->properties.value("Vlow",       0.0).toDouble();
@@ -393,16 +512,18 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
             const bool   h2 = (v2 >= Vthr);
 
             bool outHigh = false;
-            if      (t == "ELEC_AND") outHigh =  h1 && h2;
-            else if (t == "ELEC_OR")  outHigh =  h1 || h2;
-            else                      outHigh = !h1;         // NOT uses in1 only
+            if      (t == "ELEC_AND")  outHigh =  h1 && h2;
+            else if (t == "ELEC_OR")   outHigh =  h1 || h2;
+            else if (t == "ELEC_NAND") outHigh = !(h1 && h2);
+            else if (t == "ELEC_NOR")  outHigh = !(h1 || h2);
+            else if (t == "ELEC_XOR")  outHigh =  h1 != h2;
+            else                       outHigh = !h1;         // NOT uses in1 only
 
             const double E = outHigh ? Vh : Vl;
             comp->simState["outV"] = E;
 
             // Output pad is the last pad.
             const int out_a = compress(nodeOf(comp->pads.last(), nodeMap));
-            // b_idx = -1 (GND): voltage source from out_a to ground.
             if (out_a >= 0) {
                 G(out_a, row) += 1.0;
                 G(row, out_a) += 1.0;
@@ -575,8 +696,75 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
             }
             comp->simState["vCE"] = vC - vE;
         }
+        // ── PNP Transistor readback ──
+        else if (type == "ELEC_PNP") {
+            if (comp->pads.size() < 3) continue;
+            const double hFE = comp->properties.value("hFE",  100.0).toDouble();
+            const double Vth = comp->properties.value("Vth",    0.6).toDouble();
+            const double Rbe = comp->properties.value("Rbe", 1000.0).toDouble();
+
+            const int nodeB_p = nodeOf(comp->pads[0], nodeMap);
+            const int nodeC_p = nodeOf(comp->pads[1], nodeMap);
+            const int nodeE_p = nodeOf(comp->pads[2], nodeMap);
+
+            const double vB_p = (nodeB_p >= 0 && nodeB_p < n) ? V(nodeB_p) : 0.0;
+            const double vC_p = (nodeC_p >= 0 && nodeC_p < n) ? V(nodeC_p) : 0.0;
+            const double vE_p = (nodeE_p >= 0 && nodeE_p < n) ? V(nodeE_p) : 0.0;
+            const double vEB  = vE_p - vB_p;
+
+            comp->simState["vEB"]     = vEB;
+            comp->simState["voltageA"] = vB_p;
+            comp->simState["voltageB"] = vE_p;
+            comp->simState["vCE"]     = vC_p - vE_p;
+
+            if (vEB >= Vth) {
+                const double IB = (vEB - Vth) / Rbe;
+                const double IC = hFE * IB;
+                comp->simState["iB"]      = IB;
+                comp->simState["iC"]      = IC;
+                comp->simState["current"]  = IC;
+                comp->simState["region"]   = "active";
+            } else {
+                comp->simState["iB"]      = 0.0;
+                comp->simState["iC"]      = 0.0;
+                comp->simState["current"]  = 0.0;
+                comp->simState["region"]   = "off";
+            }
+        }
+        // ── Zener Diode readback ──
+        else if (type == "ELEC_ZENER") {
+            const double Vf  = comp->properties.value("forwardVoltage", 0.7).toDouble();
+            const double Vz  = comp->properties.value("zenerVoltage",   5.1).toDouble();
+            const double Ron = comp->properties.value("onResistance",   0.5).toDouble();
+            constexpr double Rz_on = 1.0;
+            constexpr double Roff  = 1e8;
+
+            const bool fwdOn = (vDiff > Vf * 0.5);
+            const bool zenOn = (vDiff < -(Vz * 0.5));
+            const double R   = fwdOn ? Ron : zenOn ? Rz_on : Roff;
+            comp->simState["current"] = vDiff / R;
+        }
+        // ── Potentiometer readback ──
+        else if (type == "ELEC_POT") {
+            if (comp->pads.size() < 3) continue;
+            const int nodeW = nodeOf(comp->pads[1], nodeMap);
+            const double vW = (nodeW >= 0 && nodeW < n) ? V(nodeW) : 0.0;
+            comp->simState["voltageWiper"] = vW;
+            comp->simState["current"] = 0.0;
+        }
+        // ── Op-Amp readback: store input node voltages for next tick ──
+        else if (type == "ELEC_OPAMP") {
+            if (comp->pads.size() < 3) continue;
+            const int nInP = nodeOf(comp->pads[0], nodeMap);
+            const int nInM = nodeOf(comp->pads[1], nodeMap);
+            const double vP = (nInP >= 0 && nInP < n) ? V(nInP) : 0.0;
+            const double vM = (nInM >= 0 && nInM < n) ? V(nInM) : 0.0;
+            comp->simState["vPlus"]  = vP;
+            comp->simState["vMinus"] = vM;
+        }
         // ── Logic gate input voltage readback ──
-        else if (type == "ELEC_AND" || type == "ELEC_OR" || type == "ELEC_NOT") {
+        else if (type == "ELEC_AND"  || type == "ELEC_OR"   || type == "ELEC_NOT"
+              || type == "ELEC_NAND" || type == "ELEC_NOR"   || type == "ELEC_XOR") {
             // Store input node voltages for next tick's gate computation.
             if (comp->pads.size() >= 2) {
                 const int n_in1 = nodeOf(comp->pads[0], nodeMap);
@@ -612,23 +800,15 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
             comp->simState["voltageDiff"]       = vp1 - vp2;  // primary for display
         }
 
-        // ── Voltage sources (VSRC + AC): current is extra MNA unknown ──
+        // ── Voltage sources (VSRC, AC, OPAMP, gates): current is extra MNA unknown ──
         for (int k = 0; k < vsources.size(); ++k) {
             if (vsources[k] == comp) {
                 const int row = (n - 1) + k;
-                if (comp->typeId != "ELEC_AND" && comp->typeId != "ELEC_OR"
-                 && comp->typeId != "ELEC_NOT") {
-                    comp->simState["current"] = (row < x.size()) ? x(row) : 0.0;
-                }
-                // Logic gate output current also stored.
-                if (comp->typeId == "ELEC_AND" || comp->typeId == "ELEC_OR"
-                 || comp->typeId == "ELEC_NOT") {
-                    comp->simState["current"] = (row < x.size()) ? x(row) : 0.0;
-                }
+                if (row < x.size())
+                    comp->simState["current"] = x(row);
                 // Transformer secondary current.
-                if (comp->typeId == "ELEC_XFMR") {
+                if (comp->typeId == "ELEC_XFMR")
                     comp->simState["secondaryCurrent"] = (row < x.size()) ? x(row) : 0.0;
-                }
             }
         }
 

@@ -134,5 +134,55 @@ private:
     std::array<ConnectionPad, 2> padStorage;  // "a" and "b" endpoints
 };
 
-// Registers Ball, Block, Spring, Anchor, Pendulum, Ramp, Rope.
+// ---------------------------------------------------------------------------
+// PulleyComponent  (MOT_PULLEY)
+// Fixed anchor rendered as a pulley wheel; ropes thread over it.
+// Behaves as an immovable anchor in the solver (two mechanical pads).
+// Properties: radius (px)
+// ---------------------------------------------------------------------------
+class PulleyComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit PulleyComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    std::array<ConnectionPad, 2> padStorage;  // "left" and "right" rope attachment pads
+};
+
+// ---------------------------------------------------------------------------
+// WheelComponent  (MOT_WHEEL)
+// Rolling disc: angular velocity follows the rolling constraint ω = v/r.
+// Visual spoke rotates as the wheel rolls; rolling friction opposes motion.
+// Properties: mass (kg), radius (px), friction (rolling friction coeff)
+// simState  : vx, vy, speed, angle (rad), angularVel (rad/s)
+// ---------------------------------------------------------------------------
+class WheelComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit WheelComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    ConnectionPad centerPad;
+};
+
+// ---------------------------------------------------------------------------
+// ThrusterComponent  (MOT_THRUSTER)
+// Applies a constant force to an attached body in a fixed world direction.
+// Properties: force (N, = px·kg/s²), angle (degrees CW from up = -Y)
+// simState  : forceX, forceY (written back each tick)
+// ---------------------------------------------------------------------------
+class ThrusterComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit ThrusterComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    ConnectionPad attachPad;
+};
+
+// Registers Ball, Block, Spring, Anchor, Pendulum, Ramp, Rope,
+//             Pulley, Wheel, Thruster.
 void registerMotionComponents(ComponentRegistry& registry);

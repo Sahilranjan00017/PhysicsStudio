@@ -11,6 +11,7 @@ class PropertiesPanel;
 class SimulationLoop;
 class UndoRedoStack;
 class WaveFieldOverlay;
+class QCloseEvent;
 
 class MainWindow final : public QMainWindow {
     Q_OBJECT
@@ -18,6 +19,9 @@ class MainWindow final : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow() override;
+
+protected:
+    void closeEvent(QCloseEvent* event) override;
 
 private:
     void buildMenus();
@@ -33,9 +37,11 @@ private:
     void newModel();
     void openModel();
     void saveModel();
+    void saveModelAsDialog();         // prompts for path, then saves
     bool saveModelAs(const QString& path);
     bool loadModelFrom(const QString& path);
     void openExample(const QString& resourcePath);
+    void fitView();
 
     CanvasView*       canvasView       = nullptr;
     OpticsOverlay*    opticsOverlay    = nullptr;
@@ -45,5 +51,6 @@ private:
     UndoRedoStack*    undoRedoStack    = nullptr;
     DataLogger*       dataLogger       = nullptr;
     GraphPanel*       graphPanel       = nullptr;
-    QString currentProjectPath;
+    QString           currentProjectPath;
+    bool              m_dirty          = false;
 };

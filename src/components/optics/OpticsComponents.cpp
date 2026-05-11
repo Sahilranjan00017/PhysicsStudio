@@ -457,6 +457,249 @@ void SlitComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
 }
 
 // ===========================================================================
+// ConcaveMirrorComponent
+// ===========================================================================
+
+ConcaveMirrorComponent::ConcaveMirrorComponent(QGraphicsItem* parent)
+    : BaseComponent(parent)
+{
+    typeId      = "OPT_CONCAVE";
+    displayName = "Curved Mirror";
+}
+
+QRectF ConcaveMirrorComponent::boundingRect() const
+{
+    const double half = properties.value("length", 120.0).toDouble() * 0.5 + 10.0;
+    return QRectF(-half, -30.0, 2.0 * half, 60.0);
+}
+
+void ConcaveMirrorComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const double half = properties.value("length",    120.0).toDouble() * 0.5;
+    const double f    = properties.value("focalLength", 200.0).toDouble();
+    const bool   sel  = option->state & QStyle::State_Selected;
+
+    // Sag of the arc at the edges (paraxial approximation: sag = L²/(8f)).
+    // Positive f = concave (centre of curvature on +Y side).
+    const double sagMax  = (std::abs(f) > 1.0) ? (half * half / (8.0 * std::abs(f))) : 0.0;
+    const double sagSign = (f > 0.0) ? 1.0 : -1.0;  // +1 concave (hollow toward +Y), -1 convex
+
+    // Draw the curved arc using a QPainterPath quadratic bezier.
+    // Control point at (0, -sagSign * sagMax * 2) to produce the right curvature.
+    const double ctrlY = -sagSign * std::min(sagMax * 2.0, 20.0);
+
+    QPainterPath arc;
+    arc.moveTo(-half, 0.0);
+    arc.quadTo(QPointF(0.0, ctrlY), QPointF(half, 0.0));
+
+    painter->setPen(QPen(sel ? QColor(28, 100, 242) : QColor(200, 215, 230), 4.0));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawPath(arc);
+
+    // Backing hatch on the non-reflecting side.
+    painter->setPen(QPen(QColor(120, 130, 140), 1.0));
+    const int hatchN = static_cast<int>(half / 8.0);
+    const double step = (2.0 * half) / std::max(hatchN, 1);
+    for (int i = 0; i <= hatchN; ++i) {
+        const double x   = -half + i * step;
+        const double sag = ctrlY * (1.0 - (x / half) * (x / half));  // quadratic sag
+        const double hDir = (f > 0.0) ? 1.0 : -1.0;
+        painter->drawLine(QPointF(x, sag), QPointF(x - 5.0 * hDir, sag + 9.0 * hDir));
+    }
+
+    // Focal point indicator (small dot at ±f/2 from vertex along normal axis).
+    if (std::abs(f) < 300.0) {
+        const double fpY = (f > 0.0) ? -(std::abs(f) * 0.5) : (std::abs(f) * 0.5);
+        const double fpYClamped = std::clamp(fpY, -25.0, 25.0);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(QColor(255, 140, 0, 180));
+        painter->drawEllipse(QPointF(0.0, fpYClamped), 4.0, 4.0);
+        painter->setPen(QPen(QColor(180, 100, 0), 1.0, Qt::DashLine));
+        painter->drawLine(QPointF(0.0, 0.0), QPointF(0.0, fpYClamped));
+    }
+
+    // Label.
+    painter->setPen(QColor(35, 42, 50));
+    const QString lbl = (f > 0.0) ? "Concave" : "Convex";
+    painter->drawText(QRectF(-half, 14.0, 2.0 * half, 16.0), Qt::AlignCenter, lbl);
+}
+
+// ===========================================================================
+// DiffractionGratingComponent
+// ===========================================================================
+
+DiffractionGratingComponent::DiffractionGratingComponent(QGraphicsItem* parent)
+    : BaseComponent(parent)
+{
+    typeId      = "OPT_GRATING";
+    displayName = "Grating";
+}
+
+QRectF DiffractionGratingComponent::boundingRect() const
+{
+    const double halfL = properties.value("length", 100.0).toDouble() * 0.5 + 8.0;
+    return QRectF(-18.0, -halfL, 36.0, 2.0 * halfL + 32.0);
+}
+
+void DiffractionGratingComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const double halfL   = properties.value("length", 100.0).toDouble() * 0.5;
+    const double spacing = properties.value("gratingSpacing", 500.0).toDouble();
+    const bool   sel     = option->state & QStyle::State_Selected;
+
+    // Grating body — thin vertical slab.
+    painter->setPen(opticsPen(sel));
+    painter->setBrush(QColor(200, 220, 240, 160));
+    painter->drawRect(QRectF(-6.0, -halfL, 12.0, 2.0 * halfL));
+
+    // Etched parallel lines (visual indication of grating rulings).
+    painter->setPen(QPen(QColor(60, 100, 160), 1.0));
+    const int numLines = std::clamp(static_cast<int>(2.0 * halfL / 6.0), 3, 24);
+    const double lineStep = 2.0 * halfL / numLines;
+    for (int i = 0; i <= numLines; ++i) {
+        const double y = -halfL + i * lineStep;
+        painter->drawLine(QPointF(-6.0, y), QPointF(6.0, y));
+    }
+
+    // Diffracted order fans (coloured preview).
+    const double d_nm = std::max(spacing, 1.0);
+    // Show spread of m=+1 order for red (700nm) and violet (400nm).
+    for (int sign : {-1, 1}) {
+        for (const double lambda : {400.0, 550.0, 700.0}) {
+            const double sinTheta = sign * lambda / d_nm;
+            if (std::abs(sinTheta) > 0.9) continue;
+            const double theta = std::asin(sinTheta);
+            const QColor c = wavelengthToColor(lambda, 0.6);
+            const double dx = std::sin(theta) * 30.0;
+            const double dy = -std::cos(theta) * 30.0;  // upward = -Y
+            painter->setPen(QPen(c, 1.2));
+            painter->drawLine(QPointF(6.0, 0.0), QPointF(6.0 + dx, dy));
+        }
+    }
+
+    // Spacing label.
+    painter->setPen(QColor(35, 42, 50));
+    painter->drawText(QRectF(-40.0, halfL + 4.0, 80.0, 14.0), Qt::AlignCenter,
+                      QString("d=%1nm").arg(static_cast<int>(spacing)));
+}
+
+// ===========================================================================
+// BeamSplitterComponent
+// ===========================================================================
+
+BeamSplitterComponent::BeamSplitterComponent(QGraphicsItem* parent)
+    : BaseComponent(parent)
+{
+    typeId      = "OPT_SPLITTER";
+    displayName = "Beam Splitter";
+}
+
+QRectF BeamSplitterComponent::boundingRect() const
+{
+    const double half = properties.value("length", 100.0).toDouble() * 0.5 + 10.0;
+    return QRectF(-half, -20.0, 2.0 * half, 54.0);
+}
+
+void BeamSplitterComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const double half = properties.value("length", 100.0).toDouble() * 0.5;
+    const double R    = properties.value("reflectance", 0.5).toDouble();
+    const bool   sel  = option->state & QStyle::State_Selected;
+
+    // Main surface — dashed to indicate partial reflection.
+    QPen surfPen(sel ? QColor(28, 100, 242) : QColor(160, 200, 220), 3.0);
+    surfPen.setStyle(Qt::DashLine);
+    painter->setPen(surfPen);
+    painter->setBrush(Qt::NoBrush);
+    painter->drawLine(QPointF(-half, 0.0), QPointF(half, 0.0));
+
+    // Thin transparent overlay (glass body hint).
+    painter->setPen(QPen(QColor(180, 210, 230, 120), 1.0));
+    painter->setBrush(QColor(220, 235, 245, 60));
+    painter->drawRect(QRectF(-half, -4.0, 2.0 * half, 8.0));
+
+    // Endpoint dots.
+    painter->setBrush(sel ? QColor(28, 100, 242) : QColor(100, 140, 160));
+    painter->setPen(Qt::NoPen);
+    painter->drawEllipse(QPointF(-half, 0.0), 3.5, 3.5);
+    painter->drawEllipse(QPointF( half, 0.0), 3.5, 3.5);
+
+    // R / T labels.
+    painter->setPen(QColor(35, 42, 50));
+    painter->setFont(QFont("Arial", 7));
+    const QString lbl = QString("R=%1%  T=%2%")
+                            .arg(static_cast<int>(R * 100))
+                            .arg(static_cast<int>((1.0 - R) * 100));
+    painter->drawText(QRectF(-half, 12.0, 2.0 * half, 16.0), Qt::AlignCenter, lbl);
+}
+
+// ===========================================================================
+// PolariserComponent
+// ===========================================================================
+
+PolariserComponent::PolariserComponent(QGraphicsItem* parent)
+    : BaseComponent(parent)
+{
+    typeId      = "OPT_POLARISER";
+    displayName = "Polariser";
+}
+
+QRectF PolariserComponent::boundingRect() const
+{
+    const double halfL = properties.value("length", 100.0).toDouble() * 0.5 + 8.0;
+    return QRectF(-18.0, -halfL, 36.0, 2.0 * halfL + 32.0);
+}
+
+void PolariserComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const double halfL   = properties.value("length", 100.0).toDouble() * 0.5;
+    const double polDeg  = properties.value("angle", 0.0).toDouble();
+    const bool   sel     = option->state & QStyle::State_Selected;
+
+    // Polariser body — semi-transparent tinted slab.
+    painter->setPen(opticsPen(sel));
+    painter->setBrush(QColor(200, 180, 240, 140));
+    painter->drawRect(QRectF(-7.0, -halfL, 14.0, 2.0 * halfL));
+
+    // Polarisation axis arrows (double-headed, rotated to polDeg).
+    const double polRad  = polDeg * M_PI / 180.0;
+    const QPointF axDir( std::cos(polRad), std::sin(polRad));
+    const double arrowLen = std::min(halfL * 0.8, 28.0);
+
+    painter->setPen(QPen(QColor(120, 60, 200), 2.0));
+    painter->drawLine(-axDir * arrowLen, axDir * arrowLen);
+
+    // Arrowheads on both ends.
+    painter->setBrush(QColor(120, 60, 200));
+    painter->setPen(Qt::NoPen);
+    const QPointF perp(-axDir.y(), axDir.x());
+    const QPointF tipA =  axDir * arrowLen;
+    const QPointF tipB = -axDir * arrowLen;
+    for (const QPointF& tip : {tipA, tipB}) {
+        const QPointF away = (tip == tipA) ? axDir : -axDir;
+        painter->drawPolygon(QPolygonF({ tip,
+                                         tip - away * 7.0 + perp * 3.5,
+                                         tip - away * 7.0 - perp * 3.5 }));
+    }
+
+    // Angle label.
+    painter->setPen(QColor(35, 42, 50));
+    painter->setFont(QFont("Arial", 7));
+    painter->drawText(QRectF(-36.0, halfL + 4.0, 72.0, 14.0), Qt::AlignCenter,
+                      QString("%1°").arg(static_cast<int>(polDeg)));
+    painter->setFont(QFont("Arial", 8));
+    painter->drawText(QRectF(-36.0, halfL + 18.0, 72.0, 14.0), Qt::AlignCenter, displayName);
+}
+
+// ===========================================================================
 // Registration
 // ===========================================================================
 
@@ -534,4 +777,44 @@ void registerOpticsComponents(ComponentRegistry& registry)
                              { "screenLength",  120.0  },   // px
                          }),
         [] { return new SlitComponent(); });
+
+    registry.registerType(
+        opticsDescriptor("OPT_CONCAVE", "Curved Mirror",
+                         "Concave (f>0) or convex (f<0) mirror — paraxial reflection model",
+                         {
+                             { "focalLength",  200.0 },   // px; + = concave, − = convex
+                             { "length",       120.0 },   // px
+                             { "reflectivity",   0.95 },
+                         }),
+        [] { return new ConcaveMirrorComponent(); });
+
+    registry.registerType(
+        opticsDescriptor("OPT_GRATING", "Diffraction Grating",
+                         "Transmission grating — splits rays into orders by wavelength",
+                         {
+                             { "gratingSpacing", 500.0 },  // nm (line period)
+                             { "length",         100.0 },  // px
+                             { "numOrders",          2 },  // orders each side (1–3)
+                             { "transmittance",    0.90 },
+                         }),
+        [] { return new DiffractionGratingComponent(); });
+
+    registry.registerType(
+        opticsDescriptor("OPT_SPLITTER", "Beam Splitter",
+                         "Partial mirror: reflects R and transmits 1−R; place at 45° to split beam",
+                         {
+                             { "reflectance", 0.50 },
+                             { "length",     100.0 },   // px
+                         }),
+        [] { return new BeamSplitterComponent(); });
+
+    registry.registerType(
+        opticsDescriptor("OPT_POLARISER", "Polariser",
+                         "Linear polariser — Malus's law: I_out = I_in·cos²(Δθ)",
+                         {
+                             { "angle",         0.0  },  // polarisation axis, deg from +X
+                             { "length",       100.0 },  // px
+                             { "transmittance",  1.0 },
+                         }),
+        [] { return new PolariserComponent(); });
 }

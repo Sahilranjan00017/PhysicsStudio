@@ -1,0 +1,81 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "acsrc1",
+            "typeId": "ELEC_AC",
+            "displayName": "AC Source",
+            "position": { "x": 400, "y": 600 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 5.0, "frequency": 50.0 }
+        },
+        {
+            "id": "res1",
+            "typeId": "ELEC_RES",
+            "displayName": "R1",
+            "position": { "x": 700, "y": 600 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 1000.0, "maxCurrent": 0.1, "destructible": false }
+        },
+        {
+            "id": "cap1",
+            "typeId": "ELEC_CAP",
+            "displayName": "C1",
+            "position": { "x": 1000, "y": 700 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "capacitance": 0.000001 }
+        },
+        {
+            "id": "scope1",
+            "typeId": "ELEC_SCOPE",
+            "displayName": "Input Scope",
+            "position": { "x": 700, "y": 900 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "inputResistance": 1000000000.0 }
+        },
+        {
+            "id": "scope2",
+            "typeId": "ELEC_SCOPE",
+            "displayName": "Output Scope",
+            "position": { "x": 1200, "y": 900 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "inputResistance": 1000000000.0 }
+        },
+        {
+            "id": "gnd1",
+            "typeId": "ELEC_GND",
+            "displayName": "Ground",
+            "position": { "x": 400, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": [
+        { "wireType": "signal", "startComponentId": "acsrc1", "startPadId": "b", "endComponentId": "res1",  "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res1",   "startPadId": "b", "endComponentId": "cap1",  "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "cap1",   "startPadId": "b", "endComponentId": "acsrc1","endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "gnd1",   "startPadId": "gnd","endComponentId": "acsrc1","endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res1",   "startPadId": "a", "endComponentId": "scope1","endPadId": "ch+" },
+        { "wireType": "signal", "startComponentId": "gnd1",   "startPadId": "gnd","endComponentId": "scope1","endPadId": "ch-" },
+        { "wireType": "signal", "startComponentId": "cap1",   "startPadId": "a", "endComponentId": "scope2","endPadId": "ch+" },
+        { "wireType": "signal", "startComponentId": "gnd1",   "startPadId": "gnd","endComponentId": "scope2","endPadId": "ch-" }
+    ]
+}

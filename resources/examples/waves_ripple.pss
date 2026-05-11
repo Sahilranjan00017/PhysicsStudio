@@ -1,0 +1,61 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "plane1",
+            "typeId": "WAV_PLANE",
+            "displayName": "Plane Wave",
+            "position": { "x": 400, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 2.0, "amplitude": 1.0, "phase": 0.0, "width": 200.0 }
+        },
+        {
+            "id": "barrier1",
+            "typeId": "WAV_BARRIER",
+            "displayName": "Double Slit",
+            "position": { "x": 1000, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "barrierLength": 240.0, "numSlits": 2, "slitWidth": 20.0, "slitSeparation": 80.0, "frequency": 2.0, "amplitude": 0.7 }
+        },
+        {
+            "id": "det1",
+            "typeId": "WAV_DET",
+            "displayName": "Detector (centre)",
+            "position": { "x": 1600, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        },
+        {
+            "id": "det2",
+            "typeId": "WAV_DET",
+            "displayName": "Detector (node)",
+            "position": { "x": 1600, "y": 640 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        },
+        {
+            "id": "ripple1",
+            "typeId": "WAV_RIPPLE",
+            "displayName": "Ripple Pulse",
+            "position": { "x": 1800, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 3.0, "amplitude": 0.8, "phase": 0.0, "numCycles": 4.0 }
+        }
+    ],
+    "wires": []
+}

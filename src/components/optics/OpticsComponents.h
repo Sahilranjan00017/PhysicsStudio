@@ -111,4 +111,66 @@ public:
     void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
 };
 
+// ---------------------------------------------------------------------------
+// ConcaveMirrorComponent  (OPT_CONCAVE)
+// Curved mirror: concave (focalLength > 0, converging) or convex (< 0).
+// Paraxial reflection model: effective normal tilted by h/(2f) from vertex.
+// Surface runs along the item's local X axis.
+// Properties: focalLength (px), length (px), reflectivity (0–1)
+// ---------------------------------------------------------------------------
+class ConcaveMirrorComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit ConcaveMirrorComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
+// ---------------------------------------------------------------------------
+// DiffractionGratingComponent  (OPT_GRATING)
+// Transmission grating: splits rays into diffraction orders m = 0, ±1, ±2.
+// Grating equation: sin(θ_m) = sin(θ_i) + m·λ/d.
+// Surface runs along the item's local Y axis.
+// Properties: gratingSpacing (nm), length (px), numOrders (1–3), transmittance
+// ---------------------------------------------------------------------------
+class DiffractionGratingComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit DiffractionGratingComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
+// ---------------------------------------------------------------------------
+// BeamSplitterComponent  (OPT_SPLITTER)
+// Partial mirror: reflects fraction R and transmits fraction T = 1 − R.
+// Place at 45° to split a beam into two perpendicular paths.
+// Surface runs along the item's local X axis.
+// Properties: reflectance (0–1), length (px)
+// ---------------------------------------------------------------------------
+class BeamSplitterComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit BeamSplitterComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
+// ---------------------------------------------------------------------------
+// PolariserComponent  (OPT_POLARISER)
+// Linear polarising filter.  Implements Malus's law:
+//   Unpolarised input → I_out = I_in / 2   (always)
+//   Polarised input   → I_out = I_in · cos²(Δθ)
+// Outgoing ray carries the polariser's axis angle for downstream Malus calculations.
+// Surface runs along the item's local Y axis.
+// Properties: angle (polarisation axis, deg from +X), length (px), transmittance
+// ---------------------------------------------------------------------------
+class PolariserComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit PolariserComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
 void registerOpticsComponents(ComponentRegistry& registry);

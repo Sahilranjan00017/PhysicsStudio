@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Physics Simulation Studio
+GenericName=Physics Simulator
+Comment=Educational multi-domain physics simulation studio
+Exec=PhysicsSimulationStudio %f
+Icon=physicsstudio
+Categories=Education;Science;
+MimeType=application/x-physicsstudio;
+Keywords=physics;electronics;optics;waves;motion;simulation;education;
+StartupWMClass=PhysicsSimulationStudio
+Terminal=false

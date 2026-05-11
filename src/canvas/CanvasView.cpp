@@ -14,6 +14,7 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QGraphicsScene>
+#include <QKeyEvent>
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -53,6 +54,7 @@ CanvasView::CanvasView(QWidget* parent)
     setDragMode(QGraphicsView::RubberBandDrag);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setAcceptDrops(true);
+    setFocusPolicy(Qt::StrongFocus);  // ensure key events are received
 }
 
 QGraphicsScene* CanvasView::graphicsScene() const
@@ -258,6 +260,24 @@ void CanvasView::drawBackground(QPainter* painter, const QRectF& rect)
 
     painter->setPen(QPen(QColor(230, 234, 238), 1));
     painter->drawLines(lines);
+}
+
+void CanvasView::keyPressEvent(QKeyEvent* event)
+{
+    // R — rotate each selected component 15° clockwise.
+    if (event->key() == Qt::Key_R && !event->isAutoRepeat()) {
+        const QList<QGraphicsItem*> sel = scene->selectedItems();
+        for (QGraphicsItem* item : sel) {
+            if (auto* comp = dynamic_cast<BaseComponent*>(item)) {
+                comp->setComponentRotation(comp->rotationDegrees + 15.0);
+            }
+        }
+        if (!sel.isEmpty()) {
+            event->accept();
+            return;
+        }
+    }
+    QGraphicsView::keyPressEvent(event);
 }
 
 void CanvasView::mousePressEvent(QMouseEvent* event)

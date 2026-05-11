@@ -1,0 +1,72 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "src1",
+            "typeId": "OPT_SRC",
+            "displayName": "White Light",
+            "position": { "x": 340, "y": 780 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "angle": 0.0, "spread": 20.0, "numRays": 5, "intensity": 1.0, "wavelength": 550.0, "rayLength": 2000.0 }
+        },
+        {
+            "id": "lens1",
+            "typeId": "OPT_LENS",
+            "displayName": "Converging Lens",
+            "position": { "x": 800, "y": 780 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "focalLength": 200.0, "diameter": 140.0, "transmittance": 0.97 }
+        },
+        {
+            "id": "screen1",
+            "typeId": "OPT_SCREEN",
+            "displayName": "Focal Screen",
+            "position": { "x": 1000, "y": 780 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 200.0 }
+        },
+        {
+            "id": "mirror1",
+            "typeId": "OPT_MIRROR",
+            "displayName": "Deflection Mirror",
+            "position": { "x": 1400, "y": 780 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": -45,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 120.0, "reflectivity": 0.95 }
+        },
+        {
+            "id": "src2",
+            "typeId": "OPT_SRC",
+            "displayName": "Red Source",
+            "position": { "x": 340, "y": 560 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "angle": 0.0, "spread": 0.0, "numRays": 1, "intensity": 1.0, "wavelength": 650.0, "rayLength": 2000.0 }
+        },
+        {
+            "id": "src3",
+            "typeId": "OPT_SRC",
+            "displayName": "Blue Source",
+            "position": { "x": 340, "y": 1000 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "angle": 0.0, "spread": 0.0, "numRays": 1, "intensity": 1.0, "wavelength": 450.0, "rayLength": 2000.0 }
+        }
+    ],
+    "wires": []
+}

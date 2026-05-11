@@ -253,6 +253,248 @@ void WaveSoundComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem
 }
 
 // ===========================================================================
+// WaveWallComponent
+// ===========================================================================
+
+WaveWallComponent::WaveWallComponent(QGraphicsItem* parent)
+    : BaseComponent(parent)
+{
+    typeId      = "WAV_WALL";
+    displayName = "Wave Wall";
+}
+
+QRectF WaveWallComponent::boundingRect() const
+{
+    const double halfL = properties.value("length", 160.0).toDouble() * 0.5 + 6.0;
+    return QRectF(-20.0, -halfL, 56.0, 2.0 * halfL + 20.0);
+}
+
+void WaveWallComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const double halfL      = properties.value("length",     160.0).toDouble() * 0.5;
+    const double reflectance= properties.value("reflectance",  0.9).toDouble();
+    const bool   sel        = option->state & QStyle::State_Selected;
+
+    // Wall body — solid dark slab.
+    painter->setPen(wavePen(sel, QColor(50, 55, 65)));
+    painter->setBrush(QColor(55, 60, 70));
+    painter->drawRect(QRectF(-8.0, -halfL, 16.0, 2.0 * halfL));
+
+    // Reflective face — bright line on the +X side.
+    painter->setPen(QPen(sel ? QColor(28, 100, 242) : QColor(190, 210, 240), 3.0));
+    painter->drawLine(QPointF(8.0, -halfL), QPointF(8.0, halfL));
+
+    // Reflection hatch marks on the +X (reflecting) side.
+    painter->setPen(QPen(QColor(150, 165, 185), 1.0));
+    const int hN = static_cast<int>(2.0 * halfL / 12.0);
+    for (int i = 0; i <= hN; ++i) {
+        const double y = -halfL + i * (2.0 * halfL) / std::max(hN, 1);
+        painter->drawLine(QPointF(8.0, y), QPointF(18.0, y - 8.0));
+    }
+
+    // Reflectance label.
+    painter->setPen(QColor(35, 42, 50));
+    painter->setFont(QFont("Arial", 7));
+    painter->drawText(QRectF(-18.0, halfL + 4.0, 60.0, 14.0), Qt::AlignLeft,
+                      QString("R=%1%").arg(static_cast<int>(reflectance * 100)));
+}
+
+// ===========================================================================
+// WavePlaneSourceComponent
+// ===========================================================================
+
+WavePlaneSourceComponent::WavePlaneSourceComponent(QGraphicsItem* parent)
+    : BaseComponent(parent)
+{
+    typeId      = "WAV_PLANE";
+    displayName = "Plane Wave";
+}
+
+QRectF WavePlaneSourceComponent::boundingRect() const
+{
+    const double halfW = properties.value("width", 120.0).toDouble() * 0.5 + 6.0;
+    return QRectF(-14.0, -halfW, 72.0, 2.0 * halfW + 20.0);
+}
+
+void WavePlaneSourceComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const double halfW = properties.value("width",     120.0).toDouble() * 0.5;
+    const double freq  = properties.value("frequency",   2.0).toDouble();
+    const double t     = simState.value("simTime",       0.0).toDouble();
+    const bool   sel   = option->state & QStyle::State_Selected;
+
+    // Source bar (vertical) — the emission line.
+    painter->setPen(wavePen(sel, QColor(30, 120, 200)));
+    painter->setBrush(QColor(180, 215, 250));
+    painter->drawRect(QRectF(-6.0, -halfW, 12.0, 2.0 * halfW));
+
+    // Tick marks along the bar.
+    painter->setPen(QPen(QColor(20, 80, 160), 1.2));
+    const int numTicks = std::clamp(static_cast<int>(2.0 * halfW / 12.0), 2, 16);
+    for (int i = 0; i <= numTicks; ++i) {
+        const double y = -halfW + i * (2.0 * halfW) / numTicks;
+        painter->drawLine(QPointF(6.0, y), QPointF(14.0, y));
+    }
+
+    // Animated planar wavefronts (short vertical lines scrolling to the right).
+    const double phase   = std::fmod(t * freq, 1.0);
+    const double lambda  = 60.0;  // visual wavelength in px
+    painter->setBrush(Qt::NoBrush);
+    for (int i = 0; i < 3; ++i) {
+        const double x     = 14.0 + (std::fmod(phase + i / 3.0, 1.0)) * lambda;
+        const double alpha = 1.0 - std::fmod(phase + i / 3.0, 1.0);
+        painter->setPen(QPen(QColor(40, 130, 220, static_cast<int>(alpha * 200)), 1.5));
+        painter->drawLine(QPointF(x, -halfW * 0.85), QPointF(x, halfW * 0.85));
+    }
+
+    // Main direction arrow.
+    painter->setPen(QPen(QColor(20, 80, 160), 2.0));
+    painter->drawLine(QPointF(14.0, 0.0), QPointF(46.0, 0.0));
+    painter->setBrush(QColor(20, 80, 160));
+    painter->setPen(Qt::NoPen);
+    painter->drawPolygon(QPolygonF({
+        QPointF(46.0,  0.0),
+        QPointF(38.0, -5.0),
+        QPointF(38.0,  5.0),
+    }));
+
+    // Frequency label.
+    painter->setPen(QColor(35, 42, 50));
+    painter->setFont(QFont("Arial", 7));
+    painter->drawText(QRectF(-12.0, halfW + 4.0, 70.0, 14.0), Qt::AlignCenter,
+                      QString("%1 Hz").arg(freq, 0, 'f', 1));
+}
+
+// ===========================================================================
+// WaveAbsorberComponent
+// ===========================================================================
+
+WaveAbsorberComponent::WaveAbsorberComponent(QGraphicsItem* parent)
+    : BaseComponent(parent)
+{
+    typeId      = "WAV_ABSORBER";
+    displayName = "Absorber";
+}
+
+QRectF WaveAbsorberComponent::boundingRect() const
+{
+    const double r = properties.value("radius", 60.0).toDouble();
+    return QRectF(-(r + 4.0), -(r + 4.0), 2.0 * (r + 4.0), 2.0 * (r + 4.0) + 20.0);
+}
+
+void WaveAbsorberComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const double r    = properties.value("radius",  60.0).toDouble();
+    const double damp = properties.value("damping",  0.95).toDouble();
+    const bool   sel  = option->state & QStyle::State_Selected;
+
+    // Absorber body — dark matte circle.
+    painter->setPen(wavePen(sel, QColor(40, 44, 52)));
+    painter->setBrush(QColor(45, 48, 55));
+    painter->drawEllipse(QPointF(0.0, 0.0), r, r);
+
+    // Cross-hatch fill indicating absorbing material.
+    painter->setClipPath([&]{
+        QPainterPath p; p.addEllipse(QPointF(0.0, 0.0), r - 1.0, r - 1.0); return p;
+    }());
+    painter->setPen(QPen(QColor(65, 70, 80), 1.0));
+    const double step = 14.0;
+    for (double d = -2.0 * r; d <= 2.0 * r; d += step) {
+        painter->drawLine(QPointF(d - r, -r), QPointF(d + r, r));
+        painter->drawLine(QPointF(d - r,  r), QPointF(d + r, -r));
+    }
+    painter->setClipping(false);
+
+    // Outer ring.
+    painter->setPen(wavePen(sel, QColor(40, 44, 52)));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawEllipse(QPointF(0.0, 0.0), r, r);
+
+    // Damping label.
+    painter->setPen(QColor(200, 205, 215));
+    painter->setFont(QFont("Arial", 7, QFont::Bold));
+    painter->drawText(QRectF(-r, -9.0, 2.0 * r, 18.0), Qt::AlignCenter,
+                      QString("%1%").arg(static_cast<int>(damp * 100)));
+    painter->setPen(QColor(35, 42, 50));
+    painter->setFont(QFont("Arial", 7));
+    painter->drawText(QRectF(-r, r + 4.0, 2.0 * r, 14.0), Qt::AlignCenter, displayName);
+}
+
+// ===========================================================================
+// WaveRippleComponent
+// ===========================================================================
+
+WaveRippleComponent::WaveRippleComponent(QGraphicsItem* parent)
+    : BaseComponent(parent)
+{
+    typeId      = "WAV_RIPPLE";
+    displayName = "Ripple";
+}
+
+QRectF WaveRippleComponent::boundingRect() const
+{
+    return QRectF(-48.0, -48.0, 96.0, 112.0);
+}
+
+void WaveRippleComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const bool   sel       = option->state & QStyle::State_Selected;
+    const double freq      = properties.value("frequency",  2.0).toDouble();
+    const double numCycles = properties.value("numCycles",  3.0).toDouble();
+    const double t         = simState.value("simTime",      0.0).toDouble();
+    const double duration  = (freq > 0.0) ? (numCycles / freq) : 1.0;
+
+    // Pulse envelope (0 when done).
+    const double envelope = (t < duration && duration > 0.0)
+                            ? std::sin(M_PI * t / duration)
+                            : 0.0;
+
+    // Central source dot.
+    painter->setPen(wavePen(sel));
+    painter->setBrush(envelope > 0.01 ? QColor(100, 180, 255) : QColor(180, 190, 200));
+    painter->drawEllipse(QPointF(0.0, 0.0), 10.0, 10.0);
+
+    // "Stone drop" icon — teardrop above the centre.
+    painter->setBrush(QColor(80, 120, 180));
+    painter->setPen(Qt::NoPen);
+    painter->drawEllipse(QPointF(0.0, -18.0), 5.0, 5.0);
+    painter->drawLine(QPointF(0.0, -13.0), QPointF(0.0, -10.0));
+
+    // Animated expanding rings (only while pulse is active).
+    const double ringPhase = std::fmod(t * freq, 1.0);
+    for (int i = 0; i < static_cast<int>(numCycles) + 1; ++i) {
+        const double ph = std::fmod(ringPhase + i / std::max(numCycles, 1.0), 1.0);
+        const double r  = ph * 40.0 + 10.0;
+        const double alpha = (1.0 - ph) * envelope * 0.7;
+        if (alpha < 0.01) continue;
+        painter->setPen(QPen(QColor(60, 140, 230, static_cast<int>(alpha * 255)), 1.5));
+        painter->setBrush(Qt::NoBrush);
+        painter->drawEllipse(QPointF(0.0, 0.0), r, r);
+    }
+
+    // Done indicator.
+    if (envelope < 0.01 && t > 0.1) {
+        painter->setPen(QColor(150, 80, 80));
+        painter->setFont(QFont("Arial", 7));
+        painter->drawText(QRectF(-22.0, 14.0, 44.0, 14.0), Qt::AlignCenter, "done");
+    }
+
+    // Label.
+    painter->setPen(QColor(35, 42, 50));
+    painter->setFont(QFont("Arial", 7));
+    painter->drawText(QRectF(-40.0, 52.0, 80.0, 14.0), Qt::AlignCenter,
+                      QString("%1 cy @ %2 Hz").arg(static_cast<int>(numCycles)).arg(freq, 0, 'f', 1));
+}
+
+// ===========================================================================
 // Registration
 // ===========================================================================
 
@@ -295,4 +537,44 @@ void registerWaveComponents(ComponentRegistry& registry)
                            { "phase",       0.0 },
                        }),
         [] { return new WaveSoundComponent(); });
+
+    registry.registerType(
+        waveDescriptor("WAV_WALL", "Wave Wall",
+                       "Reflective hard boundary — image-source method creates standing waves",
+                       {
+                           { "length",      160.0 },
+                           { "reflectance",   0.9 },
+                       }),
+        [] { return new WaveWallComponent(); });
+
+    registry.registerType(
+        waveDescriptor("WAV_PLANE", "Plane Wave",
+                       "Emits planar wavefronts from a line of coherent sources — rotate to aim",
+                       {
+                           { "frequency", 2.0   },
+                           { "amplitude", 1.0   },
+                           { "phase",     0.0   },
+                           { "width",   120.0   },  // px — length of the source line
+                       }),
+        [] { return new WavePlaneSourceComponent(); });
+
+    registry.registerType(
+        waveDescriptor("WAV_ABSORBER", "Absorber",
+                       "Anechoic absorbing region — damps wave field within its radius",
+                       {
+                           { "radius",  60.0 },
+                           { "damping",  0.95 },  // fraction absorbed per tick
+                       }),
+        [] { return new WaveAbsorberComponent(); });
+
+    registry.registerType(
+        waveDescriptor("WAV_RIPPLE", "Ripple",
+                       "Finite pulse source — like a stone in a ripple tank; restarts each simulation",
+                       {
+                           { "frequency",  2.0 },
+                           { "amplitude",  1.0 },
+                           { "phase",      0.0 },
+                           { "numCycles",  3.0 },  // envelope duration = numCycles / frequency
+                       }),
+        [] { return new WaveRippleComponent(); });
 }

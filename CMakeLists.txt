@@ -2,9 +2,23 @@ cmake_minimum_required(VERSION 3.24)
 
 project(PhysicsSimulationStudio
     VERSION 1.0.0
-    DESCRIPTION "Educational physics simulation studio"
+    DESCRIPTION "Educational multi-domain physics simulation studio"
+    HOMEPAGE_URL "https://github.com/physicsstudio/app"
     LANGUAGES CXX
 )
+
+# Expose version to the application source.
+configure_file(
+    "${CMAKE_SOURCE_DIR}/cmake/Version.h.in"
+    "${CMAKE_BINARY_DIR}/generated/Version.h"
+    @ONLY
+)
+
+# Optional: Apple Developer identity for code signing.
+# Pass -DPSS_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+# at configure time to enable deep signing on macOS.
+set(PSS_CODESIGN_IDENTITY "" CACHE STRING
+    "macOS code-signing identity (empty = ad-hoc / no signing)")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -128,7 +142,10 @@ add_executable(PhysicsSimulationStudio WIN32
     ${WIN_RESOURCES}
 )
 
-target_include_directories(PhysicsSimulationStudio PRIVATE src)
+target_include_directories(PhysicsSimulationStudio PRIVATE
+    src
+    "${CMAKE_BINARY_DIR}/generated"   # Version.h
+)
 target_link_libraries(PhysicsSimulationStudio PRIVATE Qt6::Widgets Eigen3::Eigen)
 
 # ---------------------------------------------------------------------------
@@ -158,6 +175,7 @@ if(WIN32)
                 --release
                 --no-translations
                 --no-system-d3d-compiler
+                --no-opengl-sw
                 "$<TARGET_FILE:PhysicsSimulationStudio>"
             COMMENT "Deploying Qt runtime DLLs..."
             VERBATIM
@@ -169,56 +187,160 @@ if(WIN32)
 endif()
 
 # ---------------------------------------------------------------------------
+# macOS post-build: embed Qt frameworks with macdeployqt, then optionally sign
+# ---------------------------------------------------------------------------
+if(APPLE)
+    find_program(MACDEPLOYQT NAMES macdeployqt macdeployqt6
+        HINTS "${Qt6_DIR}/../../../bin")
+    if(MACDEPLOYQT)
+        add_custom_command(TARGET PhysicsSimulationStudio POST_BUILD
+            COMMAND "${MACDEPLOYQT}"
+                "$<TARGET_BUNDLE_DIR:PhysicsSimulationStudio>"
+                -always-overwrite
+                -verbose=1
+            COMMENT "Embedding Qt frameworks into .app bundle..."
+            VERBATIM
+        )
+        message(STATUS "macdeployqt found: ${MACDEPLOYQT}")
+    else()
+        message(WARNING "macdeployqt not found — Qt frameworks not bundled; app may not be redistributable")
+    endif()
+
+    # Optional deep code signing (Hardened Runtime required for notarisation).
+    if(PSS_CODESIGN_IDENTITY)
+        add_custom_command(TARGET PhysicsSimulationStudio POST_BUILD
+            COMMAND codesign
+                --deep --force --verify --timestamp
+                --options runtime
+                --sign "${PSS_CODESIGN_IDENTITY}"
+                "$<TARGET_BUNDLE_DIR:PhysicsSimulationStudio>"
+            COMMENT "Code-signing app bundle with identity: ${PSS_CODESIGN_IDENTITY}"
+            VERBATIM
+        )
+        message(STATUS "Code signing enabled with identity: ${PSS_CODESIGN_IDENTITY}")
+    else()
+        # Ad-hoc signing so the bundle runs on Apple Silicon without Gatekeeper errors locally.
+        add_custom_command(TARGET PhysicsSimulationStudio POST_BUILD
+            COMMAND codesign --deep --force --sign "-"
+                "$<TARGET_BUNDLE_DIR:PhysicsSimulationStudio>"
+            COMMENT "Ad-hoc code signing (local use only)..."
+            VERBATIM
+        )
+    endif()
+endif()
+
+# ---------------------------------------------------------------------------
 # Install rules
 # ---------------------------------------------------------------------------
-install(TARGETS PhysicsSimulationStudio RUNTIME DESTINATION .)
+if(APPLE)
+    # Install the whole .app bundle to the root of the package.
+    install(TARGETS PhysicsSimulationStudio
+        BUNDLE  DESTINATION .
+        RUNTIME DESTINATION .
+    )
+elseif(WIN32)
+    # Install the EXE and everything windeployqt placed alongside it.
+    install(TARGETS PhysicsSimulationStudio RUNTIME DESTINATION .)
+    install(DIRECTORY "$<TARGET_FILE_DIR:PhysicsSimulationStudio>/"
+        DESTINATION .
+        FILES_MATCHING
+            PATTERN "*.dll"
+            PATTERN "*.exe"
+            PATTERN "plugins/*"
+    )
+else()
+    # Linux: binary → /usr/local/bin, desktop entry → share/applications.
+    install(TARGETS PhysicsSimulationStudio RUNTIME DESTINATION bin)
+    install(FILES "${CMAKE_SOURCE_DIR}/resources/physicsstudio.desktop"
+        DESTINATION "share/applications"
+        OPTIONAL
+    )
+endif()
 
-# macOS app bundle
+# macOS app bundle properties.
 if(APPLE)
     set_target_properties(PhysicsSimulationStudio PROPERTIES
-        MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_BUNDLE_NAME "Physics Simulation Studio"
-        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
-        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
-        MACOSX_BUNDLE_GUI_IDENTIFIER "com.physicsstudio.app"
+        MACOSX_BUNDLE                 TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME     "Physics Simulation Studio"
+        MACOSX_BUNDLE_BUNDLE_VERSION  "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER  "com.physicsstudio.app"
+        MACOSX_BUNDLE_COPYRIGHT       "Copyright © 2026 PhysicsStudio"
+        MACOSX_BUNDLE_INFO_STRING     "Educational physics simulation studio v${PROJECT_VERSION}"
     )
 endif()
 
 # ---------------------------------------------------------------------------
-# CPack — installer generation
-# Run: cmake --build build && cpack --config build/CPackConfig.cmake
+# CPack — cross-platform installer/package generation
+#
+# macOS  :  cmake --build build/macos-release  --target package
+#           → build/macos-release/PhysicsSimulationStudio-1.0.0-Darwin.dmg
+#
+# Windows:  cmake --build build/windows-msvc-release  --target package
+#           → build/windows-msvc-release/PhysicsSimulationStudio-1.0.0-win64.exe
+#
+# Linux  :  cmake --build build/linux-release  --target package
+#           → build/linux-release/PhysicsSimulationStudio-1.0.0-Linux.tar.gz
 # ---------------------------------------------------------------------------
-set(CPACK_PACKAGE_NAME                "Physics Simulation Studio")
-set(CPACK_PACKAGE_VENDOR              "PhysicsStudio")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Educational multi-domain physics simulator")
-set(CPACK_PACKAGE_VERSION_MAJOR       ${PROJECT_VERSION_MAJOR})
-set(CPACK_PACKAGE_VERSION_MINOR       ${PROJECT_VERSION_MINOR})
-set(CPACK_PACKAGE_VERSION_PATCH       ${PROJECT_VERSION_PATCH})
-set(CPACK_PACKAGE_INSTALL_DIRECTORY   "Physics Simulation Studio")
-set(CPACK_RESOURCE_FILE_LICENSE       "${CMAKE_SOURCE_DIR}/LICENSE.txt")
+set(CPACK_PACKAGE_NAME                 "PhysicsSimulationStudio")
+set(CPACK_PACKAGE_VENDOR               "PhysicsStudio")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY  "Educational multi-domain physics simulator")
+set(CPACK_PACKAGE_DESCRIPTION_FILE     "${CMAKE_SOURCE_DIR}/README.md")
+set(CPACK_PACKAGE_VERSION_MAJOR        "${PROJECT_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR        "${PROJECT_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH        "${PROJECT_VERSION_PATCH}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY    "Physics Simulation Studio")
+set(CPACK_RESOURCE_FILE_LICENSE        "${CMAKE_SOURCE_DIR}/LICENSE.txt")
 
 if(WIN32)
-    # NSIS installer (install NSIS on the build machine; no extra CMake deps)
+    # ── Windows: NSIS installer + ZIP portable ──────────────────────────────
     set(CPACK_GENERATOR "NSIS;ZIP")
-    set(CPACK_NSIS_DISPLAY_NAME   "Physics Simulation Studio")
-    set(CPACK_NSIS_PACKAGE_NAME   "Physics Simulation Studio")
-    set(CPACK_NSIS_HELP_LINK      "https://github.com/physicsstudio/app")
-    set(CPACK_NSIS_URL_INFO_ABOUT "https://github.com/physicsstudio/app")
-    set(CPACK_NSIS_CONTACT        "support@physicsstudio.app")
-    set(CPACK_NSIS_MODIFY_PATH    ON)
+    set(CPACK_PACKAGE_FILE_NAME
+        "PhysicsSimulationStudio-${PROJECT_VERSION}-win64")
+    set(CPACK_NSIS_DISPLAY_NAME     "Physics Simulation Studio ${PROJECT_VERSION}")
+    set(CPACK_NSIS_PACKAGE_NAME     "Physics Simulation Studio")
+    set(CPACK_NSIS_HELP_LINK        "https://github.com/physicsstudio/app")
+    set(CPACK_NSIS_URL_INFO_ABOUT   "https://github.com/physicsstudio/app")
+    set(CPACK_NSIS_CONTACT          "support@physicsstudio.app")
+    set(CPACK_NSIS_MODIFY_PATH      ON)
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+    set(CPACK_NSIS_MUI_ICON         "${CMAKE_SOURCE_DIR}/resources/app.ico")
+    set(CPACK_NSIS_MUI_UNIICON      "${CMAKE_SOURCE_DIR}/resources/app.ico")
     set(CPACK_NSIS_CREATE_ICONS_EXTRA
-        "CreateShortcut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Physics Studio.lnk' \
-'$INSTDIR\\\\PhysicsSimulationStudio.exe'")
+        "CreateShortcut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Physics Studio.lnk'\
+ '$INSTDIR\\\\PhysicsSimulationStudio.exe'")
     set(CPACK_NSIS_DELETE_ICONS_EXTRA
         "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Physics Studio.lnk'")
+
 elseif(APPLE)
+    # ── macOS: Drag-and-drop DMG ─────────────────────────────────────────────
     set(CPACK_GENERATOR "DragNDrop")
-    set(CPACK_DMG_VOLUME_NAME "Physics Simulation Studio")
-    set(CPACK_DMG_BACKGROUND_IMAGE "${CMAKE_SOURCE_DIR}/resources/dmg_background.png")
+    set(CPACK_PACKAGE_FILE_NAME
+        "PhysicsSimulationStudio-${PROJECT_VERSION}-macOS")
+    set(CPACK_DMG_VOLUME_NAME       "Physics Simulation Studio ${PROJECT_VERSION}")
+    set(CPACK_DMG_FORMAT            "UDZO")   # compressed
+    set(CPACK_DMG_DS_STORE_SETUP_SCRIPT
+        "${CMAKE_SOURCE_DIR}/cmake/dmg_setup.scpt")
+    # Optional designer background (skip gracefully if absent).
+    if(EXISTS "${CMAKE_SOURCE_DIR}/resources/dmg_background.png")
+        set(CPACK_DMG_BACKGROUND_IMAGE "${CMAKE_SOURCE_DIR}/resources/dmg_background.png")
+    endif()
+
 else()
+    # ── Linux: TGZ + DEB ─────────────────────────────────────────────────────
     set(CPACK_GENERATOR "TGZ;DEB")
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "PhysicsStudio")
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6widgets6, libstdc++6")
+    set(CPACK_PACKAGE_FILE_NAME
+        "PhysicsSimulationStudio-${PROJECT_VERSION}-Linux-x64")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER  "PhysicsStudio <support@physicsstudio.app>")
+    set(CPACK_DEBIAN_PACKAGE_SECTION     "education")
+    set(CPACK_DEBIAN_PACKAGE_PRIORITY    "optional")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS
+        "libqt6widgets6 (>= 6.4), libqt6opengl6 (>= 6.4), libstdc++6 (>= 11)")
+    set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
+        "Physics Simulation Studio\n"
+        " An educational multi-domain physics simulator.\n"
+        " Supports Electronics (MNA), Motion (Newtonian), Optics (ray tracing)\n"
+        " and Waves (2-D superposition).")
 endif()
 
 include(CPack)

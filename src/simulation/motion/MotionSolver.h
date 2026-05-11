@@ -21,10 +21,17 @@ struct MotionBody {
 
     double mass        = 1.0;   // kg
     double restitution = 0.8;   // coefficient of restitution (0 = perfectly inelastic)
+    double friction    = 0.0;   // kinetic friction coefficient (0 = frictionless)
+    double airDrag     = 0.0;   // quadratic drag coefficient (force = airDrag·|v|²)
 
     double radius = 20.0;       // Ball: half-diameter in scene pixels
     double halfW  = 40.0;       // Block: half-width  in scene pixels
     double halfH  = 20.0;       // Block: half-height in scene pixels
+
+    // Wheel rolling state (only used when isWheel == true).
+    bool   isWheel    = false;  // rolling-contact constraint: ω = v_x / radius
+    double angle      = 0.0;   // integrated rotation angle (rad), for visual spoke
+    double angularVel = 0.0;   // current angular velocity (rad/s)
 
     QPointF pos;    // scene centre position (pixels)
     QPointF vel;    // velocity (pixels / second)
@@ -79,6 +86,18 @@ struct MotionRamp {
 };
 
 // ---------------------------------------------------------------------------
+// MotionThruster
+// Applies a constant external force to one body each tick.
+// The force direction is fixed in world space (angle property).
+// ---------------------------------------------------------------------------
+struct MotionThruster {
+    int     bodyIdx   = -1;    // index into MotionDomain::bodies (-1 = disconnected)
+    double  forceX    = 0.0;   // world-space X force (px·kg/s²)
+    double  forceY    = 0.0;   // world-space Y force (px·kg/s²)
+    BaseComponent* component = nullptr;  // for writing simState
+};
+
+// ---------------------------------------------------------------------------
 // MotionDomain
 // Complete mechanical scene snapshot.  Persists across ticks so velocity
 // state is maintained.  Rebuilt from scene on structural changes (not on
@@ -89,6 +108,7 @@ struct MotionDomain {
     QList<MotionSpring>   springs;
     QList<MotionPendulum> pendulums;
     QList<MotionRamp>     ramps;
+    QList<MotionThruster> thrusters;
 
     double gravity        = 980.0;   // px/s²  (9.8 m/s² assuming 1 px ≈ 1 cm)
     bool   hasBoundary    = true;

@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "pend1",
+            "typeId": "MOT_PENDULUM",
+            "displayName": "Pendulum A",
+            "position": { "x": 800, "y": 360 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 200.0, "angle": 40.0, "damping": 0.02, "bobRadius": 16.0 }
+        },
+        {
+            "id": "pend2",
+            "typeId": "MOT_PENDULUM",
+            "displayName": "Pendulum B",
+            "position": { "x": 1200, "y": 360 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 280.0, "angle": -25.0, "damping": 0.01, "bobRadius": 20.0 }
+        },
+        {
+            "id": "pend3",
+            "typeId": "MOT_PENDULUM",
+            "displayName": "Pendulum C",
+            "position": { "x": 1600, "y": 360 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 140.0, "angle": 55.0, "damping": 0.03, "bobRadius": 12.0 }
+        }
+    ],
+    "wires": []
+}

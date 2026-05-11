@@ -675,7 +675,11 @@ LogicGateComponent::LogicGateComponent(const QString& gateTypeId, QGraphicsItem*
         pads.append(&padStorage[0]);
         pads.append(&padStorage[2]);  // out only
     } else {
-        displayName = (typeId == "ELEC_AND") ? "AND Gate" : "OR Gate";
+        if      (typeId == "ELEC_AND")  displayName = "AND Gate";
+        else if (typeId == "ELEC_OR")   displayName = "OR Gate";
+        else if (typeId == "ELEC_NAND") displayName = "NAND Gate";
+        else if (typeId == "ELEC_NOR")  displayName = "NOR Gate";
+        else if (typeId == "ELEC_XOR")  displayName = "XOR Gate";
         m_numInputs = 2;
         pads.append(&padStorage[0]);
         pads.append(&padStorage[1]);
@@ -705,8 +709,8 @@ void LogicGateComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem
 
     painter->setBrush(bodyFill);
 
-    if (typeId == "ELEC_AND") {
-        // AND gate: rectangular body with a rounded right side.
+    // Helper: draw AND body.
+    auto drawAndBody = [&]() {
         QPainterPath path;
         path.moveTo(-18.0, -20.0);
         path.lineTo( 4.0,  -20.0);
@@ -714,28 +718,55 @@ void LogicGateComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem
         path.lineTo(-18.0,  20.0);
         path.closeSubpath();
         painter->drawPath(path);
-
-        // Input leads.
         painter->setBrush(Qt::NoBrush);
         painter->drawLine(QPointF(-36.0, -12.0), QPointF(-18.0, -12.0));
         painter->drawLine(QPointF(-36.0,  12.0), QPointF(-18.0,  12.0));
         painter->drawLine(QPointF( 28.0,   0.0), QPointF( 36.0,   0.0));
-
-    } else if (typeId == "ELEC_OR") {
-        // OR gate: curved body.
+    };
+    // Helper: draw OR body.
+    auto drawOrBody = [&]() {
         QPainterPath path;
         path.moveTo(-18.0, -20.0);
         path.cubicTo(-10.0, -20.0, 10.0, -18.0, 28.0, 0.0);
-        path.cubicTo(10.0,  18.0, -10.0, 20.0, -18.0, 20.0);
+        path.cubicTo(10.0, 18.0, -10.0, 20.0, -18.0, 20.0);
         path.cubicTo(-8.0, 10.0, -8.0, -10.0, -18.0, -20.0);
         painter->drawPath(path);
-
-        // Input leads.
         painter->setBrush(Qt::NoBrush);
         painter->drawLine(QPointF(-36.0, -12.0), QPointF(-14.0, -12.0));
         painter->drawLine(QPointF(-36.0,  12.0), QPointF(-14.0,  12.0));
         painter->drawLine(QPointF( 28.0,   0.0), QPointF( 36.0,   0.0));
+    };
+    // Helper: bubble at output (for NAND/NOR).
+    auto drawOutputBubble = [&]() {
+        painter->setBrush(bodyFill);
+        painter->drawEllipse(QPointF(34.0, 0.0), 6.0, 6.0);
+        painter->setBrush(Qt::NoBrush);
+        // Shorten output lead to meet bubble; add lead after.
+        painter->drawLine(QPointF(40.0, 0.0), QPointF(36.0 + 6.0, 0.0));
+    };
 
+    if (typeId == "ELEC_AND") {
+        drawAndBody();
+    } else if (typeId == "ELEC_NAND") {
+        // AND body + output bubble.
+        drawAndBody();
+        painter->setBrush(bodyFill);
+        painter->drawEllipse(QPointF(34.0, 0.0), 6.0, 6.0);
+    } else if (typeId == "ELEC_OR") {
+        drawOrBody();
+    } else if (typeId == "ELEC_NOR") {
+        // OR body + output bubble.
+        drawOrBody();
+        painter->setBrush(bodyFill);
+        painter->drawEllipse(QPointF(34.0, 0.0), 6.0, 6.0);
+    } else if (typeId == "ELEC_XOR") {
+        // OR body + extra curved line at input side.
+        drawOrBody();
+        QPainterPath extra;
+        extra.moveTo(-22.0, -20.0);
+        extra.cubicTo(-12.0, -10.0, -12.0, 10.0, -22.0, 20.0);
+        painter->setBrush(Qt::NoBrush);
+        painter->drawPath(extra);
     } else { // NOT
         // Triangle with bubble at output.
         const QPolygonF tri {
@@ -744,11 +775,11 @@ void LogicGateComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem
         painter->drawPolygon(tri);
         painter->setBrush(bodyFill);
         painter->drawEllipse(QPointF(28.0, 0.0), 6.0, 6.0);
-
         painter->setBrush(Qt::NoBrush);
         painter->drawLine(QPointF(-36.0, 0.0), QPointF(-18.0, 0.0));
         painter->drawLine(QPointF(34.0,  0.0), QPointF( 36.0, 0.0));
     }
+    Q_UNUSED(drawOutputBubble)
 
     // Pad dots.
     painter->setBrush(QColor(28, 100, 242));
@@ -762,6 +793,284 @@ void LogicGateComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem
         ? QString("→ %1V (H)").arg(Vh, 0, 'f', 1)
         : "→ 0V (L)";
     painter->drawText(QRectF(-40.0, 22.0, 90.0, 14.0), Qt::AlignCenter, outLabel);
+}
+
+// ===========================================================================
+// PNPTransistorComponent
+// ===========================================================================
+
+PNPTransistorComponent::PNPTransistorComponent(QGraphicsItem* parent)
+    : BaseComponent(parent),
+      padStorage{
+          ConnectionPad{ QPointF(-36.0,  0.0), PadType::Bidirectional, DomainType::Electrical, "b", {}, false },
+          ConnectionPad{ QPointF(  4.0,-36.0), PadType::Bidirectional, DomainType::Electrical, "c", {}, false },
+          ConnectionPad{ QPointF(  4.0, 36.0), PadType::Bidirectional, DomainType::Electrical, "e", {}, false },
+      }
+{
+    typeId      = "ELEC_PNP";
+    displayName = "PNP Transistor";
+    pads.append(&padStorage[0]);
+    pads.append(&padStorage[1]);
+    pads.append(&padStorage[2]);
+}
+
+QRectF PNPTransistorComponent::boundingRect() const
+{
+    return QRectF(-44.0, -44.0, 88.0, 100.0);
+}
+
+void PNPTransistorComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    const bool sel = option->state & QStyle::State_Selected;
+    painter->setPen(componentPen(sel));
+
+    const QString region = simState.value("region", "off").toString();
+    const QColor bodyColor = (region == "active") ? QColor(230, 250, 220) : QColor(245, 245, 245);
+
+    // Transistor outline circle.
+    painter->setBrush(bodyColor);
+    painter->drawEllipse(QPointF(0.0, 0.0), 28.0, 28.0);
+
+    // Base lead (left).
+    painter->drawLine(QPointF(-36.0, 0.0), QPointF(-16.0, 0.0));
+    // Vertical bar.
+    painter->drawLine(QPointF(-16.0, -18.0), QPointF(-16.0, 18.0));
+    // Collector (top).
+    painter->drawLine(QPointF(-16.0, -12.0), QPointF(4.0, -28.0));
+    painter->drawLine(QPointF(4.0, -28.0), QPointF(4.0, -36.0));
+    // Emitter with arrow pointing INTO base (PNP direction: current flows E→base).
+    painter->drawLine(QPointF(-16.0,  12.0), QPointF(4.0,  28.0));
+    painter->drawLine(QPointF(4.0,   28.0), QPointF(4.0,  36.0));
+
+    // PNP emitter arrow: points from emitter body TOWARD base (inward arrow).
+    {
+        const QPointF tip(-16.0, 12.0);
+        const QPointF dir = QPointF(4.0, 28.0) - tip;
+        const double  len  = std::sqrt(dir.x()*dir.x() + dir.y()*dir.y());
+        const QPointF unit = dir / len;
+        const QPointF perp(-unit.y(), unit.x());
+        const QPointF base = tip + unit * 10.0;
+        const QPolygonF arrow{ tip, base + perp * 5.0, base - perp * 5.0 };
+        painter->setBrush(componentPen(sel).color());
+        painter->setPen(Qt::NoPen);
+        painter->drawPolygon(arrow);
+        painter->setPen(componentPen(sel));
+    }
+
+    // Pad dots.
+    painter->setBrush(QColor(28, 100, 242));
+    painter->setPen(Qt::NoPen);
+    for (auto* p : pads)
+        painter->drawEllipse(p->localPos, 3.5, 3.5);
+
+    // Labels.
+    painter->setPen(QColor(35, 42, 50));
+    painter->drawText(QRectF(-42.0,  -8.0, 16.0, 14.0), Qt::AlignCenter, "B");
+    painter->drawText(QRectF(  8.0, -42.0, 20.0, 14.0), Qt::AlignCenter, "C");
+    painter->drawText(QRectF(  8.0,  28.0, 20.0, 14.0), Qt::AlignCenter, "E");
+
+    if (simState.contains("iC")) {
+        const double iC = simState["iC"].toDouble();
+        painter->drawText(QRectF(-28.0, 30.0, 60.0, 14.0), Qt::AlignCenter,
+                          QString("IC=%1mA").arg(iC * 1000.0, 0, 'f', 2));
+    }
+}
+
+// ===========================================================================
+// OpAmpComponent
+// ===========================================================================
+
+OpAmpComponent::OpAmpComponent(QGraphicsItem* parent)
+    : BaseComponent(parent),
+      padStorage{
+          ConnectionPad{ QPointF(-48.0, -16.0), PadType::Bidirectional, DomainType::Electrical, "in+", {}, false },
+          ConnectionPad{ QPointF(-48.0,  16.0), PadType::Bidirectional, DomainType::Electrical, "in-", {}, false },
+          ConnectionPad{ QPointF( 48.0,   0.0), PadType::Bidirectional, DomainType::Electrical, "out", {}, false },
+      }
+{
+    typeId      = "ELEC_OPAMP";
+    displayName = "Op-Amp";
+    pads.append(&padStorage[0]);
+    pads.append(&padStorage[1]);
+    pads.append(&padStorage[2]);
+}
+
+QRectF OpAmpComponent::boundingRect() const
+{
+    return QRectF(-56.0, -42.0, 112.0, 96.0);
+}
+
+void OpAmpComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    const bool sel = option->state & QStyle::State_Selected;
+    painter->setPen(componentPen(sel));
+
+    const double outV = simState.value("outV", 0.0).toDouble();
+    const double Vpos = properties.value("supplyPos",  15.0).toDouble();
+    const double satFrac = std::abs(outV) > 0.01 ? std::abs(outV) / Vpos : 0.0;
+    const QColor fillColor = QColor(
+        200 + static_cast<int>(55.0 * (1.0 - satFrac)),
+        220,
+        255);
+
+    // Triangle body.
+    const QPolygonF tri {
+        QPointF(-32.0, -32.0),
+        QPointF(-32.0,  32.0),
+        QPointF( 36.0,   0.0)
+    };
+    painter->setBrush(fillColor);
+    painter->drawPolygon(tri);
+
+    // Input leads.
+    painter->setBrush(Qt::NoBrush);
+    painter->drawLine(QPointF(-48.0, -16.0), QPointF(-32.0, -16.0));
+    painter->drawLine(QPointF(-48.0,  16.0), QPointF(-32.0,  16.0));
+    painter->drawLine(QPointF( 36.0,   0.0), QPointF( 48.0,   0.0));
+
+    // +/− symbols inside.
+    painter->setPen(QColor(35, 42, 50));
+    painter->drawText(QRectF(-30.0, -24.0, 20.0, 14.0), Qt::AlignCenter, "+");
+    painter->drawText(QRectF(-30.0,  10.0, 20.0, 14.0), Qt::AlignCenter, "−");
+
+    // Pad dots.
+    painter->setBrush(QColor(28, 100, 242));
+    painter->setPen(Qt::NoPen);
+    for (auto* p : pads)
+        painter->drawEllipse(p->localPos, 3.5, 3.5);
+
+    // Output voltage.
+    painter->setPen(QColor(35, 42, 50));
+    if (simState.contains("outV")) {
+        painter->drawText(QRectF(-56.0, 34.0, 112.0, 14.0), Qt::AlignCenter,
+                          QString("Vout = %1 V").arg(outV, 0, 'f', 2));
+    }
+}
+
+// ===========================================================================
+// ZenerDiodeComponent
+// ===========================================================================
+
+ZenerDiodeComponent::ZenerDiodeComponent(QGraphicsItem* parent)
+    : TwoTerminalElectricalComponent(parent)
+{
+    typeId      = "ELEC_ZENER";
+    displayName = "Zener Diode";
+}
+
+void ZenerDiodeComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    const bool sel = option->state & QStyle::State_Selected;
+    painter->setPen(componentPen(sel));
+
+    // Determine state from previous tick.
+    const double V_diff = simState.value("voltageDiff", 0.0).toDouble();
+    const double Vf     = properties.value("forwardVoltage",  0.7).toDouble();
+    const double Vz     = properties.value("zenerVoltage",    5.1).toDouble();
+    const bool fwdOn    = (V_diff >  Vf * 0.5);
+    const bool zenOn    = (V_diff < -Vz * 0.5);
+    const QColor fillColor = fwdOn ? QColor(255, 220, 180)
+                           : zenOn ? QColor(180, 220, 255)
+                                   : QColor(255, 255, 255);
+
+    drawTerminals(painter);
+    painter->setBrush(fillColor);
+
+    // Diode triangle (anode left → cathode right).
+    const QPolygonF tri { QPointF(-20.0, -16.0), QPointF(-20.0, 16.0), QPointF(20.0, 0.0) };
+    painter->drawPolygon(tri);
+
+    // Zener cathode bar with bent ends (Z-shape).
+    painter->setBrush(Qt::NoBrush);
+    painter->drawLine(QPointF(20.0, -16.0), QPointF(20.0,  16.0));
+    painter->drawLine(QPointF(20.0, -16.0), QPointF(28.0, -22.0)); // upper bent end
+    painter->drawLine(QPointF(20.0,  16.0), QPointF(12.0,  22.0)); // lower bent end
+
+    // Labels.
+    painter->setPen(QColor(35, 42, 50));
+    const double Vz_val = properties.value("zenerVoltage", 5.1).toDouble();
+    painter->drawText(QRectF(-50.0, 18.0, 100.0, 14.0), Qt::AlignCenter,
+                      QString("Vz = %1 V").arg(Vz_val, 0, 'f', 1));
+    drawLabel(painter);
+}
+
+// ===========================================================================
+// PotentiometerComponent
+// ===========================================================================
+
+PotentiometerComponent::PotentiometerComponent(QGraphicsItem* parent)
+    : BaseComponent(parent),
+      padStorage{
+          ConnectionPad{ QPointF(-52.0,  0.0), PadType::Bidirectional, DomainType::Electrical, "a",     {}, false },
+          ConnectionPad{ QPointF(  0.0,-36.0), PadType::Bidirectional, DomainType::Electrical, "wiper", {}, false },
+          ConnectionPad{ QPointF( 52.0,  0.0), PadType::Bidirectional, DomainType::Electrical, "b",     {}, false },
+      }
+{
+    typeId      = "ELEC_POT";
+    displayName = "Potentiometer";
+    pads.append(&padStorage[0]);
+    pads.append(&padStorage[1]);
+    pads.append(&padStorage[2]);
+}
+
+QRectF PotentiometerComponent::boundingRect() const
+{
+    return QRectF(-60.0, -48.0, 120.0, 80.0);
+}
+
+void PotentiometerComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    const bool sel = option->state & QStyle::State_Selected;
+    painter->setPen(componentPen(sel));
+    painter->setBrush(QColor(255, 255, 255));
+
+    // Resistor body (rectangle).
+    painter->drawRect(QRectF(-28.0, -12.0, 56.0, 24.0));
+
+    // Terminal leads.
+    painter->setBrush(Qt::NoBrush);
+    painter->drawLine(QPointF(-52.0, 0.0), QPointF(-28.0, 0.0));
+    painter->drawLine(QPointF( 28.0, 0.0), QPointF( 52.0, 0.0));
+
+    // Wiper arrow: from top, pointing down to indicate position on resistor.
+    const double pos = std::clamp(properties.value("position", 0.5).toDouble(), 0.001, 0.999);
+    const double wiperX = -28.0 + pos * 56.0;
+    painter->drawLine(QPointF(wiperX, -36.0), QPointF(wiperX, -12.0));
+    // Arrowhead.
+    const QPolygonF arrow {
+        QPointF(wiperX,       -12.0),
+        QPointF(wiperX - 5.0, -20.0),
+        QPointF(wiperX + 5.0, -20.0)
+    };
+    painter->setBrush(componentPen(sel).color());
+    painter->setPen(Qt::NoPen);
+    painter->drawPolygon(arrow);
+    painter->setPen(componentPen(sel));
+    painter->setBrush(Qt::NoBrush);
+
+    // Resistor hatch pattern.
+    painter->setPen(QPen(QColor(120, 120, 120), 0.8));
+    for (int i = -24; i <= 24; i += 8)
+        painter->drawLine(QPointF(i, -12.0), QPointF(i + 4, 12.0));
+
+    // Pad dots.
+    painter->setPen(componentPen(sel));
+    painter->setBrush(QColor(28, 100, 242));
+    painter->setPen(Qt::NoPen);
+    for (auto* p : pads)
+        painter->drawEllipse(p->localPos, 3.5, 3.5);
+
+    // Labels.
+    painter->setPen(QColor(35, 42, 50));
+    const double R = properties.value("resistance", 10000.0).toDouble();
+    painter->drawText(QRectF(-52.0, 22.0, 104.0, 14.0), Qt::AlignCenter,
+                      QString("R = %1 Ω  pos = %2")
+                          .arg(R, 0, 'f', 0)
+                          .arg(pos, 0, 'f', 2));
 }
 
 // ===========================================================================
@@ -969,6 +1278,41 @@ void registerElectronicsComponents(ComponentRegistry& registry)
         [] { return new NPNTransistorComponent(); });
 
     registry.registerType(
+        descriptor("ELEC_PNP", "PNP Transistor",
+                   "Complementary BJT: active when V_EB > Vth; IC = hFE·IB (emitter→collector)", {
+            { "hFE",  100.0 },
+            { "Vth",    0.6 },
+            { "Rbe", 1000.0 },
+        }),
+        [] { return new PNPTransistorComponent(); });
+
+    registry.registerType(
+        descriptor("ELEC_OPAMP", "Op-Amp",
+                   "Ideal op-amp: Vout = A·(V+−V−) clamped to supply rails (use in negative feedback)", {
+            { "gain",       100000.0 },  // open-loop gain A
+            { "supplyPos",      15.0 },  // positive rail (V)
+            { "supplyNeg",     -15.0 },  // negative rail (V)
+        }),
+        [] { return new OpAmpComponent(); });
+
+    registry.registerType(
+        descriptor("ELEC_ZENER", "Zener Diode",
+                   "Voltage regulator: forward diode + reverse breakdown clamping at Vz", {
+            { "forwardVoltage", 0.7 },
+            { "zenerVoltage",   5.1 },
+            { "onResistance",   0.5 },
+        }),
+        [] { return new ZenerDiodeComponent(); });
+
+    registry.registerType(
+        descriptor("ELEC_POT", "Potentiometer",
+                   "Three-terminal variable resistor — wiper divides total resistance by position", {
+            { "resistance", 10000.0 },  // total Ω
+            { "position",      0.5  },  // wiper fraction (0–1)
+        }),
+        [] { return new PotentiometerComponent(); });
+
+    registry.registerType(
         descriptor("ELEC_AND", "AND Gate",
                    "Digital AND: output HIGH only when both inputs are HIGH", {
             { "Vhigh",       5.0 },
@@ -994,6 +1338,33 @@ void registerElectronicsComponents(ComponentRegistry& registry)
             { "Vthreshold",  2.5 },
         }),
         [] { return new LogicGateComponent("ELEC_NOT"); });
+
+    registry.registerType(
+        descriptor("ELEC_NAND", "NAND Gate",
+                   "NOT-AND: output LOW only when both inputs are HIGH", {
+            { "Vhigh",       5.0 },
+            { "Vlow",        0.0 },
+            { "Vthreshold",  2.5 },
+        }),
+        [] { return new LogicGateComponent("ELEC_NAND"); });
+
+    registry.registerType(
+        descriptor("ELEC_NOR", "NOR Gate",
+                   "NOT-OR: output HIGH only when both inputs are LOW", {
+            { "Vhigh",       5.0 },
+            { "Vlow",        0.0 },
+            { "Vthreshold",  2.5 },
+        }),
+        [] { return new LogicGateComponent("ELEC_NOR"); });
+
+    registry.registerType(
+        descriptor("ELEC_XOR", "XOR Gate",
+                   "Exclusive-OR: output HIGH when inputs differ", {
+            { "Vhigh",       5.0 },
+            { "Vlow",        0.0 },
+            { "Vthreshold",  2.5 },
+        }),
+        [] { return new LogicGateComponent("ELEC_XOR"); });
 
     registry.registerType(
         descriptor("ELEC_SCOPE", "Oscilloscope",

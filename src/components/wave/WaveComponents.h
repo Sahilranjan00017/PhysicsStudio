@@ -68,4 +68,64 @@ public:
     void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
 };
 
+// ---------------------------------------------------------------------------
+// WaveWallComponent  (WAV_WALL)
+// Hard reflective boundary.  Image-source method: each primary source is
+// mirrored across the wall line with a 180° phase shift (Dirichlet condition),
+// producing destructive cancellation at the wall and standing-wave patterns.
+// Properties: length (px), reflectance (0–1)
+// ---------------------------------------------------------------------------
+class WaveWallComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit WaveWallComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
+// ---------------------------------------------------------------------------
+// WavePlaneSourceComponent  (WAV_PLANE)
+// Emits a planar (linear) wavefront by stamping a row of coherent point
+// sources spaced ≈ 10 px apart along the component's local Y axis.
+// Rotation sets the propagation direction (emission is toward local +X).
+// Properties: frequency (Hz), amplitude, phase (deg), width (px)
+// ---------------------------------------------------------------------------
+class WavePlaneSourceComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit WavePlaneSourceComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
+// ---------------------------------------------------------------------------
+// WaveAbsorberComponent  (WAV_ABSORBER)
+// Anechoic region: damps the field within a circular radius after each step.
+// Field is multiplied by (1 − damping·falloff) where falloff = 1 at the
+// centre and tapers linearly to 0 at the edge.
+// Properties: radius (px), damping (0–1, fraction removed per tick)
+// ---------------------------------------------------------------------------
+class WaveAbsorberComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit WaveAbsorberComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
+// ---------------------------------------------------------------------------
+// WaveRippleComponent  (WAV_RIPPLE)
+// Finite-duration pulse source — like a stone dropped in a ripple tank.
+// Amplitude envelope: sin(π·t/T) for 0 ≤ t ≤ T = numCycles/freq, then 0.
+// Properties: frequency (Hz), amplitude, phase (deg), numCycles
+// simState  : simTime (for visual animation)
+// ---------------------------------------------------------------------------
+class WaveRippleComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit WaveRippleComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
 void registerWaveComponents(ComponentRegistry& registry);

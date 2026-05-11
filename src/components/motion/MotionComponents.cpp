@@ -480,6 +480,205 @@ void RopeComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
 }
 
 // ===========================================================================
+// PulleyComponent
+// ===========================================================================
+
+PulleyComponent::PulleyComponent(QGraphicsItem* parent)
+    : BaseComponent(parent),
+      padStorage{
+          ConnectionPad{ QPointF(-22.0, 0.0), PadType::Bidirectional, DomainType::Mechanical, "left",  {}, false },
+          ConnectionPad{ QPointF( 22.0, 0.0), PadType::Bidirectional, DomainType::Mechanical, "right", {}, false },
+      }
+{
+    typeId      = "MOT_PULLEY";
+    displayName = "Pulley";
+    pads.append(&padStorage[0]);
+    pads.append(&padStorage[1]);
+}
+
+QRectF PulleyComponent::boundingRect() const
+{
+    const double r = properties.value("radius", 24.0).toDouble();
+    return QRectF(-(r + 6.0), -(r + 20.0), 2.0 * (r + 6.0), 2.0 * r + 26.0);
+}
+
+void PulleyComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const bool   sel = option->state & QStyle::State_Selected;
+    const double r   = properties.value("radius", 24.0).toDouble();
+
+    // Mounting bracket: two vertical lines from ceiling.
+    painter->setPen(QPen(QColor(80, 90, 100), 1.5));
+    painter->drawLine(QPointF(-12.0, -(r + 14.0)), QPointF(-12.0, -r));
+    painter->drawLine(QPointF( 12.0, -(r + 14.0)), QPointF( 12.0, -r));
+    painter->drawLine(QPointF(-18.0, -(r + 14.0)), QPointF(18.0, -(r + 14.0)));
+    // Ceiling hatch.
+    for (int i = -3; i <= 3; ++i)
+        painter->drawLine(QPointF(i * 6.0, -(r + 14.0)), QPointF(i * 6.0 - 4.0, -(r + 20.0)));
+
+    // Outer wheel rim.
+    painter->setPen(motionPen(sel));
+    painter->setBrush(QColor(210, 215, 220));
+    painter->drawEllipse(QPointF(0.0, 0.0), r, r);
+
+    // Inner hub.
+    painter->setBrush(QColor(150, 160, 170));
+    painter->drawEllipse(QPointF(0.0, 0.0), r * 0.35, r * 0.35);
+
+    // 4 spokes.
+    painter->setPen(QPen(QColor(100, 110, 120), 1.5));
+    for (int i = 0; i < 4; ++i) {
+        const double a = i * M_PI * 0.5;
+        painter->drawLine(QPointF(0.0, 0.0),
+                          QPointF(r * 0.9 * std::cos(a), r * 0.9 * std::sin(a)));
+    }
+
+    // Groove indicator (dark ring near rim where rope sits).
+    painter->setPen(QPen(QColor(80, 90, 100), 1.0));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawEllipse(QPointF(0.0, 0.0), r * 0.85, r * 0.85);
+
+    // Pad dots.
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(60, 70, 80));
+    painter->drawEllipse(padStorage[0].localPos, 3.5, 3.5);
+    painter->drawEllipse(padStorage[1].localPos, 3.5, 3.5);
+}
+
+// ===========================================================================
+// WheelComponent
+// ===========================================================================
+
+WheelComponent::WheelComponent(QGraphicsItem* parent)
+    : BaseComponent(parent),
+      centerPad{ QPointF(0.0, 0.0), PadType::Bidirectional, DomainType::Mechanical, "center", {}, false }
+{
+    typeId      = "MOT_WHEEL";
+    displayName = "Wheel";
+    pads.append(&centerPad);
+}
+
+QRectF WheelComponent::boundingRect() const
+{
+    const double r = properties.value("radius", 24.0).toDouble();
+    return QRectF(-(r + 4.0), -(r + 4.0), 2.0 * (r + 4.0), 2.0 * (r + 4.0));
+}
+
+void WheelComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const bool   sel   = option->state & QStyle::State_Selected;
+    const double r     = properties.value("radius", 24.0).toDouble();
+    const double angle = simState.value("angle", 0.0).toDouble();
+
+    // Tyre (outer rim).
+    painter->setPen(motionPen(sel));
+    painter->setBrush(QColor(55, 60, 65));
+    painter->drawEllipse(QPointF(0.0, 0.0), r, r);
+
+    // Rim (inner coloured disc).
+    painter->setBrush(destroyed ? QColor(255, 200, 200) : QColor(180, 195, 210));
+    painter->drawEllipse(QPointF(0.0, 0.0), r * 0.75, r * 0.75);
+
+    // Hub.
+    painter->setBrush(QColor(100, 110, 120));
+    painter->drawEllipse(QPointF(0.0, 0.0), r * 0.18, r * 0.18);
+
+    // 3 spokes at 120° intervals, rotated by current angle.
+    painter->setPen(QPen(QColor(130, 140, 150), 2.0));
+    for (int i = 0; i < 3; ++i) {
+        const double a = angle + i * 2.0 * M_PI / 3.0;
+        painter->drawLine(QPointF(0.0, 0.0),
+                          QPointF(r * 0.7 * std::cos(a), r * 0.7 * std::sin(a)));
+    }
+
+    // Velocity readout.
+    if (simState.contains("speed")) {
+        const double spd = simState["speed"].toDouble();
+        painter->setPen(QColor(35, 42, 50));
+        painter->setFont(QFont("Arial", 7));
+        painter->drawText(QRectF(r + 4.0, -8.0, 60.0, 16.0), Qt::AlignLeft | Qt::AlignVCenter,
+                          QString("%1 px/s").arg(spd, 0, 'f', 0));
+    }
+}
+
+// ===========================================================================
+// ThrusterComponent
+// ===========================================================================
+
+ThrusterComponent::ThrusterComponent(QGraphicsItem* parent)
+    : BaseComponent(parent),
+      attachPad{ QPointF(0.0, 0.0), PadType::Bidirectional, DomainType::Mechanical, "attach", {}, false }
+{
+    typeId      = "MOT_THRUSTER";
+    displayName = "Thruster";
+    pads.append(&attachPad);
+}
+
+QRectF ThrusterComponent::boundingRect() const
+{
+    return QRectF(-40.0, -40.0, 80.0, 80.0);
+}
+
+void ThrusterComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const bool   sel      = option->state & QStyle::State_Selected;
+    const double forceMag = properties.value("force", 500.0).toDouble();
+    const double angleDeg = properties.value("angle",   0.0).toDouble();
+    const double angleRad = angleDeg * M_PI / 180.0;
+
+    // Force direction vector (CW from -Y axis, i.e. angle=0 → force upward).
+    const QPointF dir(std::sin(angleRad), -std::cos(angleRad));
+
+    // Scale arrow length to represent force magnitude (capped visually).
+    const double arrowLen = std::min(28.0, 4.0 + forceMag * 0.04);
+    const QPointF tip = dir * arrowLen;
+
+    // Thruster body: small filled rectangle perpendicular to force direction.
+    const QPointF perp(-dir.y(), dir.x());
+    QPolygonF body;
+    body << ( perp * 8.0)
+         << (-perp * 8.0)
+         << (-perp * 8.0 - dir * 12.0)
+         << ( perp * 8.0 - dir * 12.0);
+
+    painter->setPen(motionPen(sel));
+    painter->setBrush(destroyed ? QColor(255, 200, 200) : QColor(180, 100, 60));
+    painter->drawPolygon(body);
+
+    // Exhaust flame hint (opposite to force direction).
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(255, 160, 40, 180));
+    QPolygonF flame;
+    flame << ( perp * 4.0 - dir * 12.0)
+          << (-perp * 4.0 - dir * 12.0)
+          << (-dir * 22.0);
+    painter->drawPolygon(flame);
+
+    // Arrow showing force direction.
+    painter->setPen(QPen(QColor(50, 160, 80), 2.5));
+    painter->drawLine(QPointF(0.0, 0.0), tip);
+
+    // Arrowhead.
+    const QPointF left  = tip - dir * 7.0 + perp * 4.0;
+    const QPointF right = tip - dir * 7.0 - perp * 4.0;
+    painter->setBrush(QColor(50, 160, 80));
+    painter->setPen(Qt::NoPen);
+    painter->drawPolygon(QPolygonF({ tip, left, right }));
+
+    // Force magnitude label.
+    painter->setPen(QColor(35, 42, 50));
+    painter->setFont(QFont("Arial", 7));
+    painter->drawText(QRectF(-36.0, 18.0, 72.0, 14.0), Qt::AlignCenter,
+                      QString("%1 N").arg(forceMag, 0, 'f', 0));
+}
+
+// ===========================================================================
 // Registration
 // ===========================================================================
 
@@ -553,4 +752,34 @@ void registerMotionComponents(ComponentRegistry& registry)
                              { "damping",      5.0 },
                          }),
         [] { return new RopeComponent(); });
+
+    registry.registerType(
+        motionDescriptor("MOT_PULLEY", "Pulley",
+                         "Fixed pulley wheel — attach ropes or springs on each side",
+                         {
+                             { "radius", 24.0 },
+                         }),
+        [] { return new PulleyComponent(); });
+
+    registry.registerType(
+        motionDescriptor("MOT_WHEEL", "Wheel",
+                         "Rolling disc — angular velocity tracks v/r; rolling friction opposes motion",
+                         {
+                             { "mass",       2.0  },
+                             { "radius",    24.0  },
+                             { "friction",   0.15 },
+                             { "restitution", 0.5 },
+                             { "velocityX",   0.0 },
+                             { "velocityY",   0.0 },
+                         }),
+        [] { return new WheelComponent(); });
+
+    registry.registerType(
+        motionDescriptor("MOT_THRUSTER", "Thruster",
+                         "Applies a constant force to the connected body in a fixed direction",
+                         {
+                             { "force", 500.0 },  // px·kg/s² ≈ Newtons at sim scale
+                             { "angle",   0.0 },  // degrees CW from upward (-Y)
+                         }),
+        [] { return new ThrusterComponent(); });
 }

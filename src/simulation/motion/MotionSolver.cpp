@@ -186,6 +186,26 @@ void MotionSolver::accumulateForces(MotionDomain& domain)
         if (sp.bodyB >= 0 && !domain.bodies[sp.bodyB].fixed)
             domain.bodies[sp.bodyB].force -= F;
     }
+
+    // Quadratic air drag:  F_drag = -airDrag · |v|² · v̂
+    for (auto& b : domain.bodies) {
+        if (b.fixed || b.airDrag <= 0.0) continue;
+        const double spd = length(b.vel);
+        if (spd > 0.01) {
+            const double dragMag = b.airDrag * spd * spd;
+            b.force -= (b.vel / spd) * dragMag;
+        }
+    }
+
+    // Thruster constant forces.
+    for (const auto& thr : domain.thrusters) {
+        if (thr.bodyIdx < 0 || thr.bodyIdx >= domain.bodies.size()) continue;
+        auto& b = domain.bodies[thr.bodyIdx];
+        if (!b.fixed) {
+            b.force.rx() += thr.forceX;
+            b.force.ry() += thr.forceY;
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +220,12 @@ void MotionSolver::integrate(MotionDomain& domain, double dt)
             continue;
         b.vel += (b.force / b.mass) * dt;
         b.pos += b.vel * dt;
+
+        // Rolling constraint: ω = v_x / r (pure rolling on horizontal surface).
+        if (b.isWheel && b.radius > 0.1) {
+            b.angularVel = b.vel.x() / b.radius;
+            b.angle += b.angularVel * dt;
+        }
     }
 }
 
@@ -235,26 +261,52 @@ void MotionSolver::enforceBoundary(MotionDomain& domain)
         if (b.fixed)
             continue;
 
+        // Helper: apply a normal bounce + optional friction at a wall.
+        // normal_sign: +1 when pushing in +axis direction, -1 for -axis.
+        // incoming_v: velocity component along the wall normal (pre-bounce).
+        // tang_v: reference to the tangential velocity component.
+        auto applyWallFriction = [&](double incoming_v, double& tang_v) {
+            if (b.friction > 0.0 && std::abs(tang_v) > 1e-4) {
+                // Coulomb impulse: Jt_max = mu * Jn (both per unit mass).
+                const double Jn     = std::abs(incoming_v) * (1.0 + b.restitution);
+                const double Jt_max = b.friction * Jn;
+                const double delta  = std::min(Jt_max, std::abs(tang_v));
+                tang_v -= std::copysign(delta, tang_v);
+            }
+        };
+
         if (b.shape == MotionBody::Shape::Ball) {
-            // Left wall
+            // Left wall (normal = +X)
             if (b.pos.x() - b.radius < domain.boundaryLeft) {
                 b.pos.rx() = domain.boundaryLeft + b.radius;
-                b.vel.rx() =  std::abs(b.vel.x()) * b.restitution;
+                if (b.vel.x() < 0.0) {
+                    applyWallFriction(b.vel.x(), b.vel.ry());
+                    b.vel.rx() = std::abs(b.vel.x()) * b.restitution;
+                }
             }
-            // Right wall
+            // Right wall (normal = -X)
             if (b.pos.x() + b.radius > domain.boundaryRight) {
                 b.pos.rx() = domain.boundaryRight - b.radius;
-                b.vel.rx() = -std::abs(b.vel.x()) * b.restitution;
+                if (b.vel.x() > 0.0) {
+                    applyWallFriction(b.vel.x(), b.vel.ry());
+                    b.vel.rx() = -std::abs(b.vel.x()) * b.restitution;
+                }
             }
-            // Top wall
+            // Top wall (normal = +Y)
             if (b.pos.y() - b.radius < domain.boundaryTop) {
                 b.pos.ry() = domain.boundaryTop + b.radius;
-                b.vel.ry() =  std::abs(b.vel.y()) * b.restitution;
+                if (b.vel.y() < 0.0) {
+                    applyWallFriction(b.vel.y(), b.vel.rx());
+                    b.vel.ry() = std::abs(b.vel.y()) * b.restitution;
+                }
             }
-            // Bottom wall (floor)
+            // Floor (normal = -Y)
             if (b.pos.y() + b.radius > domain.boundaryBottom) {
                 b.pos.ry() = domain.boundaryBottom - b.radius;
-                b.vel.ry() = -std::abs(b.vel.y()) * b.restitution;
+                if (b.vel.y() > 0.0) {
+                    applyWallFriction(b.vel.y(), b.vel.rx());
+                    b.vel.ry() = -std::abs(b.vel.y()) * b.restitution;
+                }
             }
         } else {
             // Block boundary clamping.
@@ -348,11 +400,21 @@ void MotionSolver::resolveRampCollisions(MotionDomain& domain)
             const double overlap = body.radius - dist;
             body.pos += normal * overlap;
 
-            // Velocity impulse.
+            // Normal velocity impulse.
             const double vRelN = dot(body.vel, normal);
             if (vRelN < 0.0) {   // approaching
-                const double impulseMag = -(1.0 + ramp.restitution) * vRelN;
-                body.vel += normal * impulseMag;
+                const double Jn = -(1.0 + ramp.restitution) * vRelN;
+                body.vel += normal * Jn;
+
+                // Tangential (sliding) friction along ramp surface.
+                if (body.friction > 0.0) {
+                    const double vTang = dot(body.vel, along);
+                    if (std::abs(vTang) > 1e-4) {
+                        const double Jt_max = body.friction * std::abs(Jn);
+                        const double delta  = std::min(Jt_max, std::abs(vTang));
+                        body.vel -= along * std::copysign(delta, vTang);
+                    }
+                }
             }
         }
     }
@@ -372,7 +434,20 @@ void MotionSolver::writeBack(MotionDomain& domain)
         b.component->simState["vx"]    = b.vel.x();
         b.component->simState["vy"]    = b.vel.y();
         b.component->simState["speed"] = std::hypot(b.vel.x(), b.vel.y());
+        if (b.isWheel) {
+            b.component->simState["angle"]      = b.angle;
+            b.component->simState["angularVel"] = b.angularVel;
+        }
         b.component->update();
+    }
+
+    // Write thruster force components to simState for display.
+    for (const auto& thr : domain.thrusters) {
+        if (thr.component) {
+            thr.component->simState["forceX"] = thr.forceX;
+            thr.component->simState["forceY"] = thr.forceY;
+            thr.component->update();
+        }
     }
 
     // Update Spring visual endpoints stored in simState so SpringComponent

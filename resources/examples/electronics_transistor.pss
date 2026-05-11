@@ -1,0 +1,91 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "vcc",
+            "typeId": "ELEC_VSRC",
+            "displayName": "Vcc (9V)",
+            "position": { "x": 1000, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 9.0, "internalResistance": 0.0 }
+        },
+        {
+            "id": "vbase",
+            "typeId": "ELEC_VSRC",
+            "displayName": "Vbase (2V)",
+            "position": { "x": 400, "y": 600 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 2.0, "internalResistance": 0.0 }
+        },
+        {
+            "id": "rc",
+            "typeId": "ELEC_RES",
+            "displayName": "Rc (collector)",
+            "position": { "x": 1000, "y": 600 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 470.0, "maxCurrent": 0.5, "destructible": false }
+        },
+        {
+            "id": "rb",
+            "typeId": "ELEC_RES",
+            "displayName": "Rb (base)",
+            "position": { "x": 700, "y": 600 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 10000.0, "maxCurrent": 0.1, "destructible": false }
+        },
+        {
+            "id": "npn1",
+            "typeId": "ELEC_NPN",
+            "displayName": "Q1 (NPN)",
+            "position": { "x": 1000, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "hFE": 100.0, "Vth": 0.6, "Rbe": 1000.0 }
+        },
+        {
+            "id": "amm1",
+            "typeId": "ELEC_AMM",
+            "displayName": "Ammeter (Ic)",
+            "position": { "x": 1200, "y": 700 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "range": 0.1, "burdenResistance": 0.000001 }
+        },
+        {
+            "id": "gnd1",
+            "typeId": "ELEC_GND",
+            "displayName": "Ground",
+            "position": { "x": 1000, "y": 1000 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": [
+        { "wireType": "signal", "startComponentId": "vcc",   "startPadId": "b",   "endComponentId": "rc",    "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "rc",    "startPadId": "b",   "endComponentId": "npn1",  "endPadId": "c" },
+        { "wireType": "signal", "startComponentId": "npn1",  "startPadId": "e",   "endComponentId": "gnd1",  "endPadId": "gnd" },
+        { "wireType": "signal", "startComponentId": "vcc",   "startPadId": "a",   "endComponentId": "gnd1",  "endPadId": "gnd" },
+        { "wireType": "signal", "startComponentId": "vbase", "startPadId": "b",   "endComponentId": "rb",    "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "rb",    "startPadId": "b",   "endComponentId": "npn1",  "endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "vbase", "startPadId": "a",   "endComponentId": "gnd1",  "endPadId": "gnd" }
+    ]
+}

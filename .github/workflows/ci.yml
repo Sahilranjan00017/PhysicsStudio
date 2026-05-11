@@ -1,0 +1,210 @@
+name: CI / CD
+
+# ─── Triggers ────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main, develop, 'release/**']
+    tags:     ['v*.*.*']
+  pull_request:
+    branches: [main, develop]
+
+# Cancel redundant in-progress runs on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─── Environment ─────────────────────────────────────────────────────────────
+env:
+  QT_VERSION:    '6.8.1'
+  CMAKE_VERSION: '3.28.0'
+  APP_NAME:      'PhysicsSimulationStudio'
+
+# ─── Jobs ────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Build + Test + Package on all three platforms
+  # ══════════════════════════════════════════════════════════════════════════
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+
+          # ── macOS (Apple Silicon + Intel universal) ──────────────────────
+          - name:     'macOS 14 (arm64)'
+            os:       macos-14
+            preset:   macos-release
+            artifact: 'PhysicsStudio-macOS'
+            ext:      'dmg'
+            qt_arch:  ''
+
+          # ── Windows x64 ──────────────────────────────────────────────────
+          - name:    'Windows x64'
+            os:      windows-2022
+            preset:  windows-msvc-release
+            artifact: 'PhysicsStudio-Windows'
+            ext:      'exe'
+            qt_arch:  'win64_msvc2022_64'
+
+          # ── Linux x64 (Ubuntu 22.04 LTS) ─────────────────────────────────
+          - name:    'Ubuntu 22.04 x64'
+            os:      ubuntu-22.04
+            preset:  linux-release
+            artifact: 'PhysicsStudio-Linux'
+            ext:      'tar.gz'
+            qt_arch:  'gcc_64'
+
+    steps:
+
+      # ── Checkout ───────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      # full history for version tagging
+
+      # ── Install Qt6 ────────────────────────────────────────────────────────
+      - name: Install Qt ${{ env.QT_VERSION }} (non-Linux)
+        if: runner.os != 'Linux'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version:  ${{ env.QT_VERSION }}
+          arch:     ${{ matrix.qt_arch }}
+          cache:    true
+          cache-key-prefix: qt-${{ matrix.os }}
+
+      - name: Install Qt6 & build tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            qt6-base-dev qt6-base-private-dev \
+            libqt6opengl6-dev libgl1-mesa-dev \
+            cmake ninja-build \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 \
+            libxkbcommon-x11-0
+
+      # ── Configure ─────────────────────────────────────────────────────────
+      - name: Configure CMake
+        run: cmake --preset ${{ matrix.preset }}
+
+      # ── Build ─────────────────────────────────────────────────────────────
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }} --parallel
+
+      # ── Test ──────────────────────────────────────────────────────────────
+      - name: Run tests
+        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+
+      # ── Package ───────────────────────────────────────────────────────────
+      - name: Create installer / package (non-Linux)
+        if: runner.os != 'Linux'
+        run: cmake --build --preset ${{ matrix.preset }} --target package
+
+      - name: Create archive (Linux)
+        if: runner.os == 'Linux'
+        run: cmake --build --preset ${{ matrix.preset }} --target package
+
+      # ── Upload artifacts ──────────────────────────────────────────────────
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-${{ github.sha }}
+          path: |
+            build/${{ matrix.preset }}/PhysicsSimulationStudio-*.${{ matrix.ext }}
+            build/${{ matrix.preset }}/PhysicsSimulationStudio-*.dmg
+            build/${{ matrix.preset }}/PhysicsSimulationStudio-*.zip
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Publish GitHub Release when a version tag is pushed
+  # ══════════════════════════════════════════════════════════════════════════
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Physics Simulation Studio ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          generate_release_notes: true
+          files: |
+            dist/**/*.dmg
+            dist/**/*.exe
+            dist/**/*.tar.gz
+            dist/**/*.zip
+          body: |
+            ## Physics Simulation Studio ${{ github.ref_name }}
+
+            ### Installation
+
+            | Platform | Download |
+            |---|---|
+            | **macOS** (11+, Apple Silicon & Intel) | `.dmg` — drag to Applications |
+            | **Windows** (10/11 x64) | `.exe` — NSIS installer |
+            | **Linux** (Ubuntu 22.04+) | `.tar.gz` — extract and run |
+
+            ### What's included
+            - Electronics solver (MNA): 26 component types
+            - Motion solver: Newtonian physics with friction, drag, springs, pendulums
+            - Optics solver: Geometric ray tracing with 11 component types
+            - Wave solver: 2-D analytical superposition with 8 source/barrier types
+
+            Built with Qt ${{ env.QT_VERSION }} and Eigen 3.4.
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Code-quality: static analysis on Linux (fast, no Qt install needed)
+  # ══════════════════════════════════════════════════════════════════════════
+  lint:
+    name: Static Analysis
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-tidy and Qt6
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            clang-tidy clang \
+            qt6-base-dev qt6-base-private-dev \
+            libqt6opengl6-dev cmake ninja-build
+
+      - name: Configure (debug, with compile_commands)
+        run: |
+          cmake --preset linux-debug \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DPSS_BUILD_TESTS=OFF
+
+      - name: Run clang-tidy
+        run: |
+          find src -name '*.cpp' | \
+          xargs clang-tidy \
+            --config-file=.clang-tidy \
+            -p build/linux-debug \
+            --quiet \
+          2>&1 | tee clang-tidy-report.txt
+        continue-on-error: true     # warn but don't block the pipeline
+
+      - name: Upload tidy report
+        uses: actions/upload-artifact@v4
+        with:
+          name: clang-tidy-report
+          path: clang-tidy-report.txt
+          retention-days: 7

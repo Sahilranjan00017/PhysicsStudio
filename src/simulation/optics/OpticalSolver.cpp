@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -79,7 +80,8 @@ void OpticalSolver::trace(OpticalDomain& domain)
             const double rad = qDegreesToRadians(rayAngle);
             const QPointF dir(std::cos(rad), std::sin(rad));
 
-            traceRay(domain, srcPos, dir, wavelength, intensity, rayLength, 0, blockers, 1.0);
+            traceRay(domain, srcPos, dir, wavelength, intensity, rayLength, 0, blockers,
+                     1.0, UNPOLARISED);
         }
     }
 }
@@ -92,7 +94,8 @@ void OpticalSolver::traceRay(OpticalDomain& domain,
                               double wavelength, double intensity,
                               double remainingLength, int bounceCount,
                               const QList<BaseComponent*>& blockers,
-                              double nMedium)
+                              double nMedium,
+                              double polAngle)
 {
     if (bounceCount > MAX_BOUNCES || intensity < 0.01 || remainingLength < 1.0)
         return;
@@ -118,10 +121,11 @@ void OpticalSolver::traceRay(OpticalDomain& domain,
 
     // Record this ray segment.
     OpticalSegment seg;
-    seg.start      = pos;
-    seg.end        = hitComp ? hitPt : (pos + dir * remainingLength);
-    seg.wavelength = wavelength;
-    seg.intensity  = intensity;
+    seg.start             = pos;
+    seg.end               = hitComp ? hitPt : (pos + dir * remainingLength);
+    seg.wavelength        = wavelength;
+    seg.intensity         = intensity;
+    seg.polarisationAngle = polAngle;
     domain.segments << seg;
 
     if (!hitComp)
@@ -136,7 +140,7 @@ void OpticalSolver::traceRay(OpticalDomain& domain,
         const QPointF reflected = normalize2d(dir - hitNormal * (2.0 * dot2d(dir, hitNormal)));
         traceRay(domain, hitPt, reflected, wavelength,
                  intensity * reflectivity,
-                 remainingLength - consumed, bounceCount + 1, blockers, nMedium);
+                 remainingLength - consumed, bounceCount + 1, blockers, nMedium, polAngle);
 
     // ── Lens ─────────────────────────────────────────────────────────────────
     } else if (hitType == "OPT_LENS") {
@@ -144,7 +148,7 @@ void OpticalSolver::traceRay(OpticalDomain& domain,
         const QPointF refracted = thinLensRefract(dir, hitNormal, hitPt, hitComp);
         traceRay(domain, hitPt, refracted, wavelength,
                  intensity * transmittance,
-                 remainingLength - consumed, bounceCount + 1, blockers, nMedium);
+                 remainingLength - consumed, bounceCount + 1, blockers, nMedium, polAngle);
 
     // ── Screen ───────────────────────────────────────────────────────────────
     } else if (hitType == "OPT_SCREEN") {
@@ -158,26 +162,23 @@ void OpticalSolver::traceRay(OpticalDomain& domain,
 
         double n1, n2;
         if (nMedium < 1.01) {
-            // Entering prism (in air → glass).
-            n1 = 1.0;
+            n1 = 1.0;     // air → glass
             n2 = nGlass;
         } else {
-            // Exiting prism (in glass → air).
-            n1 = nMedium;
+            n1 = nMedium; // glass → air
             n2 = 1.0;
         }
 
         const QPointF refracted = snellRefract(dir, hitNormal, n1, n2);
         if (refracted.x() == 0.0 && refracted.y() == 0.0) {
-            // Total internal reflection.
             const QPointF reflected = normalize2d(dir - hitNormal * (2.0 * dot2d(dir, hitNormal)));
             traceRay(domain, hitPt, reflected, wavelength,
                      intensity * 0.95,
-                     remainingLength - consumed, bounceCount + 1, blockers, nMedium);
+                     remainingLength - consumed, bounceCount + 1, blockers, nMedium, polAngle);
         } else {
             traceRay(domain, hitPt, refracted, wavelength,
                      intensity * 0.98,
-                     remainingLength - consumed, bounceCount + 1, blockers, n2);
+                     remainingLength - consumed, bounceCount + 1, blockers, n2, polAngle);
         }
 
     // ── Filter — wavelength bandpass ─────────────────────────────────────
@@ -187,24 +188,100 @@ void OpticalSolver::traceRay(OpticalDomain& domain,
         const double trans  = hitComp->properties.value("transmittance",      0.90).toDouble();
 
         if (std::abs(wavelength - center) <= bw * 0.5) {
-            // Within pass-band — continue ray (pass-through, same direction).
-            const QPointF fwd = normalize2d(dir);
-            traceRay(domain, hitPt, fwd, wavelength,
+            traceRay(domain, hitPt, normalize2d(dir), wavelength,
                      intensity * trans,
-                     remainingLength - consumed, bounceCount + 1, blockers, nMedium);
+                     remainingLength - consumed, bounceCount + 1, blockers, nMedium, polAngle);
         }
-        // else: absorbed — ray stops.
 
     // ── Slit — aperture blocker ───────────────────────────────────────────
     } else if (hitType == "OPT_SLIT") {
         if (slitPassesRay(hitComp, hitPt)) {
-            // Ray passes through the gap — continue in same direction.
-            const QPointF fwd = normalize2d(dir);
-            traceRay(domain, hitPt, fwd, wavelength,
+            traceRay(domain, hitPt, normalize2d(dir), wavelength,
                      intensity,
-                     remainingLength - consumed, bounceCount + 1, blockers, nMedium);
+                     remainingLength - consumed, bounceCount + 1, blockers, nMedium, polAngle);
         }
-        // else: ray hits opaque region — absorbed.
+
+    // ── Curved mirror — paraxial reflection ──────────────────────────────
+    } else if (hitType == "OPT_CONCAVE") {
+        const double reflectivity = hitComp->properties.value("reflectivity", 0.95).toDouble();
+        const QPointF reflected   = curvedMirrorReflect(dir, hitNormal, hitPt, hitComp);
+        traceRay(domain, hitPt, reflected, wavelength,
+                 intensity * reflectivity,
+                 remainingLength - consumed, bounceCount + 1, blockers, nMedium, polAngle);
+
+    // ── Diffraction grating — multi-order transmission ────────────────────
+    } else if (hitType == "OPT_GRATING") {
+        const double d_nm       = std::max(hitComp->properties.value("gratingSpacing", 500.0).toDouble(), 1.0);
+        const int    numOrders  = std::clamp(hitComp->properties.value("numOrders",  2).toInt(), 1, 3);
+        const double trans      = hitComp->properties.value("transmittance", 0.90).toDouble();
+
+        // Forward normal (in direction of ray travel through the grating).
+        const QPointF fwdNormal = QPointF(-hitNormal.x(), -hitNormal.y());
+        // Surface tangent (along the grating rulings).
+        const QPointF tng       = QPointF(-hitNormal.y(), hitNormal.x());
+
+        // Incoming tangential component = sin(θ_i).
+        const double sinThetaI = dot2d(dir, tng);
+
+        // Intensity per order: m=0 gets 40%, m=±1 each 25%, m=±2 each 5%.
+        constexpr double ORDER_WEIGHT[] = { 0.40, 0.25, 0.05 };
+
+        for (int m = -numOrders; m <= numOrders; ++m) {
+            const double sinThetaM = sinThetaI + m * (wavelength / d_nm);
+            if (std::abs(sinThetaM) >= 1.0) continue;  // evanescent
+
+            const double cosThetaM = std::sqrt(1.0 - sinThetaM * sinThetaM);
+            const QPointF newDir   = normalize2d(tng * sinThetaM + fwdNormal * cosThetaM);
+
+            const int    absM   = std::min(std::abs(m), 2);
+            const double weight = ORDER_WEIGHT[absM];
+
+            traceRay(domain, hitPt, newDir, wavelength,
+                     intensity * trans * weight,
+                     remainingLength - consumed, bounceCount + 1, blockers, nMedium, polAngle);
+        }
+
+    // ── Beam splitter — simultaneous reflection + transmission ────────────
+    } else if (hitType == "OPT_SPLITTER") {
+        const double R = std::clamp(hitComp->properties.value("reflectance", 0.5).toDouble(), 0.0, 1.0);
+        const double T = 1.0 - R;
+
+        // Reflected branch.
+        if (R * intensity >= 0.01) {
+            const QPointF reflected = normalize2d(dir - hitNormal * (2.0 * dot2d(dir, hitNormal)));
+            traceRay(domain, hitPt, reflected, wavelength,
+                     intensity * R,
+                     remainingLength - consumed, bounceCount + 1, blockers, nMedium, polAngle);
+        }
+        // Transmitted branch (continues forward).
+        if (T * intensity >= 0.01) {
+            traceRay(domain, hitPt, normalize2d(dir), wavelength,
+                     intensity * T,
+                     remainingLength - consumed, bounceCount + 1, blockers, nMedium, polAngle);
+        }
+
+    // ── Polariser — Malus's law ───────────────────────────────────────────
+    } else if (hitType == "OPT_POLARISER") {
+        const double polAxis = hitComp->properties.value("angle", 0.0).toDouble()
+                               * std::numbers::pi / 180.0;
+        const double trans   = hitComp->properties.value("transmittance", 1.0).toDouble();
+
+        double outIntensity;
+        if (std::isnan(polAngle)) {
+            // Unpolarised input: I_out = I_in / 2 (Malus's law, averaged over all angles).
+            outIntensity = intensity * trans * 0.5;
+        } else {
+            // Already polarised: Malus's law I_out = I_in · cos²(Δθ).
+            const double cosTheta = std::cos(polAngle - polAxis);
+            outIntensity = intensity * trans * cosTheta * cosTheta;
+        }
+
+        if (outIntensity >= 0.01) {
+            traceRay(domain, hitPt, normalize2d(dir), wavelength,
+                     outIntensity,
+                     remainingLength - consumed, bounceCount + 1, blockers, nMedium,
+                     polAxis);   // outgoing ray is linearly polarised at polAxis
+        }
     }
 }
 
@@ -271,6 +348,21 @@ bool OpticalSolver::surfaceEndpoints(BaseComponent* comp, QPointF& outA, QPointF
         outB = comp->mapToScene(QPointF(0.0,  half));
         return true;
     }
+    // ── New elements ────────────────────────────────────────────────────────
+    if (comp->typeId == "OPT_CONCAVE" || comp->typeId == "OPT_SPLITTER") {
+        // Surface runs along local X axis (like OPT_MIRROR).
+        const double half = comp->properties.value("length", 120.0).toDouble() * 0.5;
+        outA = comp->mapToScene(QPointF(-half, 0.0));
+        outB = comp->mapToScene(QPointF( half, 0.0));
+        return true;
+    }
+    if (comp->typeId == "OPT_GRATING" || comp->typeId == "OPT_POLARISER") {
+        // Surface runs along local Y axis (like OPT_FILTER).
+        const double half = comp->properties.value("length", 100.0).toDouble() * 0.5;
+        outA = comp->mapToScene(QPointF(0.0, -half));
+        outB = comp->mapToScene(QPointF(0.0,  half));
+        return true;
+    }
     return false;
 }
 
@@ -326,6 +418,36 @@ QPointF OpticalSolver::thinLensRefract(QPointF dir, QPointF normal,
 
     const QPointF newDir = fwd * d_fwd + tng * d_tng_new;
     return normalize2d(newDir);
+}
+
+// ---------------------------------------------------------------------------
+// OpticalSolver::curvedMirrorReflect
+// Paraxial spherical-mirror model.
+// At hit height h from the mirror centre along the surface, the effective
+// surface normal is tilted by h/(2f) from the vertex normal (paraxial appr.).
+// f > 0 = concave (converging);  f < 0 = convex (diverging).
+// ---------------------------------------------------------------------------
+QPointF OpticalSolver::curvedMirrorReflect(QPointF dir, QPointF flatNormal,
+                                            const QPointF& hitPt, BaseComponent* mirror)
+{
+    const double f = mirror->properties.value("focalLength", 200.0).toDouble();
+    if (std::abs(f) < 1.0) {
+        // Degenerate — fall back to flat mirror.
+        return normalize2d(dir - flatNormal * (2.0 * dot2d(dir, flatNormal)));
+    }
+
+    // Surface tangent (along the mirror surface, perpendicular to normal).
+    const QPointF tng(-flatNormal.y(), flatNormal.x());
+
+    // Height from mirror vertex along the surface tangent.
+    const double h = dot2d(hitPt - mirror->pos(), tng);
+
+    // Paraxial effective-normal tilt: dθ = h / (2f).
+    const double tilt = h / (2.0 * f);
+    const QPointF effectiveNormal = normalize2d(flatNormal - tng * tilt);
+
+    // Standard specular reflection off the effective normal.
+    return normalize2d(dir - effectiveNormal * (2.0 * dot2d(dir, effectiveNormal)));
 }
 
 // ---------------------------------------------------------------------------

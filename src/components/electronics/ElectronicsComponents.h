@@ -207,9 +207,74 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// LogicGateComponent  (ELEC_AND / ELEC_OR / ELEC_NOT)
+// PNPTransistorComponent  (ELEC_PNP)
+// Complementary BJT to NPN: active when V_EB > Vth.
+// IC = hFE·IB flows from emitter to collector.
+// 3 terminals: B (base), C (collector), E (emitter).
+// Properties: hFE, Vth (V), Rbe (Ω)
+// simState  : vEB, iC, region ("off"/"active")
+// ---------------------------------------------------------------------------
+class PNPTransistorComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit PNPTransistorComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    std::array<ConnectionPad, 3> padStorage;  // B, C, E
+};
+
+// ---------------------------------------------------------------------------
+// OpAmpComponent  (ELEC_OPAMP)
+// Ideal op-amp: Vout = clamp(A·(V+ − V−), Vneg, Vpos).
+// 3 main terminals: in+ (non-inverting), in- (inverting), out.
+// Properties: gain (A, default 1e5), supplyPos (V), supplyNeg (V)
+// simState  : vPlus, vMinus, outV
+// ---------------------------------------------------------------------------
+class OpAmpComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit OpAmpComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    std::array<ConnectionPad, 3> padStorage;  // in+, in-, out
+};
+
+// ---------------------------------------------------------------------------
+// ZenerDiodeComponent  (ELEC_ZENER)
+// Forward bias: conducts at Vf (like regular diode).
+// Reverse breakdown: clamps at Vz (zener voltage).
+// Properties: forwardVoltage (V), zenerVoltage (V), onResistance (Ω)
+// simState  : voltageDiff, current
+// ---------------------------------------------------------------------------
+class ZenerDiodeComponent final : public TwoTerminalElectricalComponent {
+    Q_OBJECT
+public:
+    explicit ZenerDiodeComponent(QGraphicsItem* parent = nullptr);
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+};
+
+// ---------------------------------------------------------------------------
+// PotentiometerComponent  (ELEC_POT)
+// Three-terminal variable resistor: A—[R·pos]—Wiper—[R·(1−pos)]—B.
+// Properties: resistance (Ω total), position (0–1, wiper fraction from A)
+// simState  : voltageA, voltageB, voltageWiper
+// ---------------------------------------------------------------------------
+class PotentiometerComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit PotentiometerComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    std::array<ConnectionPad, 3> padStorage;  // a, wiper, b
+};
+
+// ---------------------------------------------------------------------------
+// LogicGateComponent  (ELEC_AND / ELEC_OR / ELEC_NOT / ELEC_NAND / ELEC_NOR / ELEC_XOR)
 // Digital gate: inputs read voltage levels; output drives a controlled voltage.
-// 2-input gates (AND, OR): in1, in2, out pads.
+// 2-input gates (AND,OR,NAND,NOR,XOR): in1, in2, out pads.
 // Single-input NOT: in, out pads.
 // Properties: Vhigh (5.0), Vlow (0.0), Vthreshold (2.5)
 // simState  : in1V, in2V (voltage levels), outV (driven output)
