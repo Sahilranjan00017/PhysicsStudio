@@ -232,6 +232,248 @@ void GroundComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* o
     painter->drawText(QRectF(-32.0, 20.0, 64.0, 18.0), Qt::AlignCenter, displayName);
 }
 
+// ===========================================================================
+// CapacitorComponent
+// ===========================================================================
+
+CapacitorComponent::CapacitorComponent(QGraphicsItem* parent)
+    : TwoTerminalElectricalComponent(parent)
+{
+    typeId      = "ELEC_CAP";
+    displayName = "Capacitor";
+}
+
+void CapacitorComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(componentPen(option->state & QStyle::State_Selected));
+    painter->setBrush(componentBrush(destroyed));
+    drawTerminals(painter);
+
+    // Parallel-plate capacitor symbol: two vertical bars separated by a gap.
+    painter->drawLine(QPointF(-36.0, 0.0), QPointF(-6.0, 0.0));
+    painter->drawLine(QPointF(  6.0, 0.0), QPointF(36.0, 0.0));
+    painter->setPen(QPen(componentPen(option->state & QStyle::State_Selected).color(), 3.5));
+    painter->drawLine(QPointF(-6.0, -16.0), QPointF(-6.0, 16.0));
+    painter->drawLine(QPointF( 6.0, -16.0), QPointF( 6.0, 16.0));
+
+    // Voltage label across plates.
+    if (simState.contains("voltageDiff")) {
+        const double V = simState["voltageDiff"].toDouble();
+        painter->setPen(QColor(35, 42, 50));
+        painter->setFont(QFont("Arial", 8));
+        painter->drawText(QRectF(-50.0, 18.0, 100.0, 16.0), Qt::AlignCenter,
+                          QString("%1 V").arg(V, 0, 'f', 2));
+    } else {
+        drawLabel(painter);
+    }
+}
+
+// ===========================================================================
+// LEDComponent
+// ===========================================================================
+
+LEDComponent::LEDComponent(QGraphicsItem* parent)
+    : TwoTerminalElectricalComponent(parent)
+{
+    typeId      = "ELEC_LED";
+    displayName = "LED";
+}
+
+void LEDComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(componentPen(option->state & QStyle::State_Selected));
+    drawTerminals(painter);
+
+    const bool glowing = simState.value("glowing", false).toBool();
+    const double wavelength = properties.value("wavelength", 625.0).toDouble();
+
+    // Glow halo when forward biased.
+    if (glowing) {
+        QColor halo;
+        if      (wavelength < 450) halo = QColor(80, 0, 255, 60);
+        else if (wavelength < 520) halo = QColor(0, 200, 0, 60);
+        else if (wavelength < 590) halo = QColor(255, 200, 0, 60);
+        else                       halo = QColor(255, 50, 0, 60);
+        painter->setBrush(halo);
+        painter->setPen(Qt::NoPen);
+        painter->drawEllipse(QPointF(0.0, 0.0), 26.0, 26.0);
+        painter->setPen(componentPen(option->state & QStyle::State_Selected));
+    }
+
+    // Diode triangle body.
+    QColor bodyColor = glowing ? QColor(255, 220, 180) : componentBrush(destroyed).color();
+    if (glowing && wavelength < 450)      bodyColor = QColor(200, 180, 255);
+    else if (glowing && wavelength < 520) bodyColor = QColor(180, 255, 200);
+    else if (glowing && wavelength < 590) bodyColor = QColor(255, 255, 180);
+    painter->setBrush(bodyColor);
+
+    const QPolygonF triangle {
+        QPointF(-18.0, -14.0), QPointF(-18.0, 14.0), QPointF(14.0, 0.0)
+    };
+    painter->drawPolygon(triangle);
+    painter->drawLine(QPointF(14.0, -14.0), QPointF(14.0, 14.0));
+    painter->drawLine(QPointF(-36.0, 0.0), QPointF(-18.0, 0.0));
+    painter->drawLine(QPointF(14.0, 0.0), QPointF(36.0, 0.0));
+
+    // Emission arrows.
+    if (glowing) {
+        painter->setPen(QPen(QColor(255, 200, 0), 1.5));
+        painter->drawLine(QPointF(18.0, -8.0), QPointF(28.0, -18.0));
+        painter->drawLine(QPointF(24.0, -4.0), QPointF(34.0, -14.0));
+    }
+
+    drawLabel(painter);
+}
+
+// ===========================================================================
+// SwitchComponent
+// ===========================================================================
+
+SwitchComponent::SwitchComponent(QGraphicsItem* parent)
+    : TwoTerminalElectricalComponent(parent)
+{
+    typeId      = "ELEC_SW";
+    displayName = "Switch";
+}
+
+void SwitchComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(componentPen(option->state & QStyle::State_Selected));
+    painter->setBrush(Qt::NoBrush);
+    drawTerminals(painter);
+
+    const bool closed = properties.value("closed", true).toBool();
+
+    // Pivot dots.
+    painter->setBrush(QColor(35, 42, 50));
+    painter->drawEllipse(QPointF(-18.0, 0.0), 4.0, 4.0);
+    painter->drawEllipse(QPointF( 18.0, 0.0), 4.0, 4.0);
+    painter->setBrush(Qt::NoBrush);
+
+    if (closed) {
+        // Closed: straight horizontal connecting bar.
+        painter->drawLine(QPointF(-18.0, 0.0), QPointF(18.0, 0.0));
+    } else {
+        // Open: bar tilted upward from left pivot.
+        painter->drawLine(QPointF(-18.0, 0.0), QPointF(14.0, -14.0));
+    }
+
+    // Label shows state.
+    painter->setPen(QColor(35, 42, 50));
+    painter->drawText(QRectF(-50.0, 18.0, 100.0, 16.0), Qt::AlignCenter,
+                      closed ? "SW (closed)" : "SW (open)");
+}
+
+// ===========================================================================
+// DiodeComponent
+// ===========================================================================
+
+DiodeComponent::DiodeComponent(QGraphicsItem* parent)
+    : TwoTerminalElectricalComponent(parent)
+{
+    typeId      = "ELEC_DIODE";
+    displayName = "Diode";
+}
+
+void DiodeComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(componentPen(option->state & QStyle::State_Selected));
+    painter->setBrush(componentBrush(destroyed));
+    drawTerminals(painter);
+
+    // Standard diode symbol: triangle + bar.
+    const QPolygonF triangle {
+        QPointF(-18.0, -14.0), QPointF(-18.0, 14.0), QPointF(14.0, 0.0)
+    };
+    painter->drawPolygon(triangle);
+    painter->drawLine(QPointF(14.0, -14.0), QPointF(14.0, 14.0));
+    painter->drawLine(QPointF(-36.0, 0.0), QPointF(-18.0, 0.0));
+    painter->drawLine(QPointF(14.0,  0.0), QPointF(36.0,  0.0));
+
+    drawLabel(painter);
+}
+
+// ===========================================================================
+// ACSourceComponent
+// ===========================================================================
+
+ACSourceComponent::ACSourceComponent(QGraphicsItem* parent)
+    : TwoTerminalElectricalComponent(parent)
+{
+    typeId      = "ELEC_AC";
+    displayName = "AC Source";
+}
+
+void ACSourceComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(componentPen(option->state & QStyle::State_Selected));
+    painter->setBrush(componentBrush(destroyed));
+    drawTerminals(painter);
+
+    // Circle body.
+    painter->drawEllipse(QRectF(-18.0, -18.0, 36.0, 36.0));
+
+    // Sine-wave symbol inside (~).
+    painter->setPen(QPen(QColor(35, 42, 50), 1.5));
+    const double wx = 7.0, wy = 5.0;
+    painter->drawArc(QRectF(-wx, -wy, wx, 2.0 * wy),      0, 180 * 16);
+    painter->drawArc(QRectF(0.0, -wy, wx, 2.0 * wy), 180 * 16, 180 * 16);
+
+    // Frequency label.
+    const double freq = properties.value("frequency", 50.0).toDouble();
+    painter->setPen(QColor(35, 42, 50));
+    painter->drawText(QRectF(-50.0, 18.0, 100.0, 16.0), Qt::AlignCenter,
+                      QString("%1 Hz").arg(freq, 0, 'f', 0));
+}
+
+// ===========================================================================
+// FuseComponent
+// ===========================================================================
+
+FuseComponent::FuseComponent(QGraphicsItem* parent)
+    : TwoTerminalElectricalComponent(parent)
+{
+    typeId      = "ELEC_FUSE";
+    displayName = "Fuse";
+}
+
+void FuseComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(componentPen(option->state & QStyle::State_Selected));
+    painter->setBrush(componentBrush(destroyed));
+    drawTerminals(painter);
+
+    // Fuse body: rectangle.
+    painter->drawRect(QRectF(-22.0, -10.0, 44.0, 20.0));
+    painter->drawLine(QPointF(-36.0, 0.0), QPointF(-22.0, 0.0));
+    painter->drawLine(QPointF( 22.0, 0.0), QPointF( 36.0, 0.0));
+
+    if (destroyed) {
+        // Blown fuse: broken wire inside.
+        painter->setPen(QPen(QColor(200, 60, 60), 2.0));
+        painter->drawLine(QPointF(-16.0, 0.0), QPointF(-6.0,  0.0));
+        painter->drawLine(QPointF(  6.0, 0.0), QPointF(16.0,  0.0));
+        painter->drawLine(QPointF( -6.0, 0.0), QPointF( -2.0, -7.0));
+        painter->drawLine(QPointF(  2.0,-7.0), QPointF(  6.0,  0.0));
+    } else {
+        // Intact wire inside.
+        painter->setPen(QPen(QColor(35, 42, 50), 1.5));
+        painter->drawLine(QPointF(-16.0, 0.0), QPointF(16.0, 0.0));
+    }
+
+    drawLabel(painter);
+}
+
+// ===========================================================================
+// Registration
+// ===========================================================================
+
 void registerElectronicsComponents(ComponentRegistry& registry)
 {
     registry.registerType(
@@ -272,4 +514,51 @@ void registerElectronicsComponents(ComponentRegistry& registry)
             { "inputResistance", 1000000000.0 },
         }),
         [] { return new VoltmeterComponent(); });
+
+    registry.registerType(
+        descriptor("ELEC_CAP", "Capacitor",
+                   "Stores charge; transient RC charging/discharging (backward-Euler model)", {
+            { "capacitance", 0.0001 },  // 100 µF
+        }),
+        [] { return new CapacitorComponent(); });
+
+    registry.registerType(
+        descriptor("ELEC_LED", "LED",
+                   "Light-emitting diode — glows when forward biased", {
+            { "forwardVoltage", 2.0 },
+            { "onResistance",   5.0 },
+            { "wavelength",   625.0 },  // nm (red default)
+        }),
+        [] { return new LEDComponent(); });
+
+    registry.registerType(
+        descriptor("ELEC_SW", "Switch",
+                   "Manually open or close a circuit branch", {
+            { "closed", true },
+        }),
+        [] { return new SwitchComponent(); });
+
+    registry.registerType(
+        descriptor("ELEC_DIODE", "Diode",
+                   "One-way current valve with threshold voltage", {
+            { "forwardVoltage", 0.7 },
+            { "onResistance",   0.1 },
+        }),
+        [] { return new DiodeComponent(); });
+
+    registry.registerType(
+        descriptor("ELEC_AC", "AC Source",
+                   "Sinusoidal voltage source V = Vamp·sin(2π·f·t)", {
+            { "voltage",   5.0 },   // peak amplitude (V)
+            { "frequency", 50.0 },  // Hz
+        }),
+        [] { return new ACSourceComponent(); });
+
+    registry.registerType(
+        descriptor("ELEC_FUSE", "Fuse",
+                   "Protects circuit — blows (self-destructs) when I > rating", {
+            { "resistance",     0.01 },  // Ω
+            { "currentRating",  0.5  },  // A
+        }),
+        [] { return new FuseComponent(); });
 }

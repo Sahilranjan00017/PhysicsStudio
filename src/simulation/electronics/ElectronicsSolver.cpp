@@ -9,6 +9,9 @@
 #include <QDebug>
 #include <QMap>
 
+#include <cmath>
+#include <numbers>
+
 // ---------------------------------------------------------------------------
 // MNA solver — Modified Nodal Analysis
 //
@@ -134,6 +137,9 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
 {
     if (!validate(domain)) return;
 
+    // Advance simulation time (used by AC source).
+    domain.simTime += dt;
+
     // -----------------------------------------------------------------------
     // Step 1 — build node map
     // -----------------------------------------------------------------------
@@ -144,12 +150,12 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
     if (groundNode < 0) return; // already warned
 
     // -----------------------------------------------------------------------
-    // Step 2 — count voltage sources (need extra unknowns)
+    // Step 2 — count voltage sources (VSRC + AC need extra MNA unknowns)
     // -----------------------------------------------------------------------
     int m = 0;
     QList<BaseComponent*> vsources;
     for (auto* comp : domain.components) {
-        if (comp->typeId == "ELEC_VSRC") {
+        if (comp->typeId == "ELEC_VSRC" || comp->typeId == "ELEC_AC") {
             vsources.append(comp);
             ++m;
         }
@@ -171,26 +177,34 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
     Eigen::VectorXd b = Eigen::VectorXd::Zero(size);
 
     // -----------------------------------------------------------------------
-    // Step 3 — stamp resistors, ammeters, voltmeters, current sources
+    // Step 3 — stamp all passive / controlled elements
     // -----------------------------------------------------------------------
     for (auto* comp : domain.components) {
         const QString& type = comp->typeId;
 
-        if (type == "ELEC_RES" || type == "ELEC_AMM" || type == "ELEC_VOLTM") {
-            // All three stamp as a conductance.
+        // ── Resistive elements (Resistor, Ammeter, Voltmeter, Switch, Fuse) ──
+        if (type == "ELEC_RES" || type == "ELEC_AMM" || type == "ELEC_VOLTM"
+         || type == "ELEC_SW"  || type == "ELEC_FUSE") {
             double R = 1.0;
             if (type == "ELEC_RES")
                 R = comp->properties.value("resistance", 1000.0).toDouble();
             else if (type == "ELEC_AMM")
                 R = comp->properties.value("burdenResistance", 1e-6).toDouble();
-            else // voltmeter — very high input resistance
+            else if (type == "ELEC_VOLTM")
                 R = comp->properties.value("inputResistance", 1e9).toDouble();
+            else if (type == "ELEC_SW") {
+                const bool closed = comp->properties.value("closed", true).toBool();
+                R = closed ? 0.001 : 1e9;
+            } else { // ELEC_FUSE
+                R = comp->destroyed ? 1e9
+                    : comp->properties.value("resistance", 0.01).toDouble();
+            }
 
-            if (R <= 0.0) R = 1e-9; // clamp to avoid divide-by-zero
+            if (R <= 0.0) R = 1e-9;
             const double G_val = 1.0 / R;
 
             if (comp->pads.size() < 2) continue;
-            const int a = compress(nodeOf(comp->pads[0], nodeMap));
+            const int a     = compress(nodeOf(comp->pads[0], nodeMap));
             const int b_idx = compress(nodeOf(comp->pads[1], nodeMap));
 
             if (a >= 0)     G(a,     a    ) += G_val;
@@ -200,25 +214,84 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
                 G(b_idx, a    ) -= G_val;
             }
         }
+        // ── Capacitor companion model (backward-Euler: G_eq || I_hist) ──
+        else if (type == "ELEC_CAP") {
+            const double C     = comp->properties.value("capacitance", 100e-6).toDouble();
+            const double G_eq  = (dt > 1e-12) ? C / dt : 0.0;
+            const double V_prev = comp->simState.value("v_cap", 0.0).toDouble();
+
+            if (comp->pads.size() < 2) continue;
+            const int a     = compress(nodeOf(comp->pads[0], nodeMap));
+            const int b_idx = compress(nodeOf(comp->pads[1], nodeMap));
+
+            // Equivalent conductance stamp.
+            if (a >= 0)     G(a,     a    ) += G_eq;
+            if (b_idx >= 0) G(b_idx, b_idx) += G_eq;
+            if (a >= 0 && b_idx >= 0) {
+                G(a,     b_idx) -= G_eq;
+                G(b_idx, a    ) -= G_eq;
+            }
+            // History current source (b→a direction, magnitude G_eq*V_prev).
+            const double I_hist = G_eq * V_prev;
+            if (a >= 0)     b(a)     += I_hist;
+            if (b_idx >= 0) b(b_idx) -= I_hist;
+        }
+        // ── Diode / LED  (piecewise-linear, no extra MNA unknown) ──
+        else if (type == "ELEC_DIODE" || type == "ELEC_LED") {
+            const double Vf   = comp->properties.value("forwardVoltage",
+                                    (type == "ELEC_LED") ? 2.0 : 0.7).toDouble();
+            const double Ron  = comp->properties.value("onResistance",
+                                    (type == "ELEC_LED") ? 5.0 : 0.1).toDouble();
+            constexpr double Roff = 1e8;
+
+            if (comp->pads.size() < 2) continue;
+            const int a     = compress(nodeOf(comp->pads[0], nodeMap));
+            const int b_idx = compress(nodeOf(comp->pads[1], nodeMap));
+
+            // Use previous voltage to determine bias state.
+            const double V_prev = comp->simState.value("voltageDiff", 0.0).toDouble();
+            const bool fwd = (V_prev > Vf * 0.5);
+
+            const double G_val = 1.0 / (fwd ? Ron : Roff);
+
+            if (a >= 0)     G(a,     a    ) += G_val;
+            if (b_idx >= 0) G(b_idx, b_idx) += G_val;
+            if (a >= 0 && b_idx >= 0) {
+                G(a,     b_idx) -= G_val;
+                G(b_idx, a    ) -= G_val;
+            }
+            // Forward voltage offset: current source G*Vf injected into node a.
+            if (fwd) {
+                const double Ioffset = G_val * Vf;
+                if (a >= 0)     b(a)     += Ioffset;
+                if (b_idx >= 0) b(b_idx) -= Ioffset;
+            }
+        }
+        // ── Current source ──
         else if (type == "ELEC_ISRC") {
-            // Current source stamps into RHS only.
             const double I = comp->properties.value("current", 0.01).toDouble();
             if (comp->pads.size() < 2) continue;
             const int a     = compress(nodeOf(comp->pads[0], nodeMap));
             const int b_idx = compress(nodeOf(comp->pads[1], nodeMap));
-            // Conventional current flows a → b (out of pad[0], into pad[1]).
             if (a >= 0)     b(a)     -= I;
             if (b_idx >= 0) b(b_idx) += I;
         }
-        // Ground and voltage sources handled separately.
+        // Ground and voltage sources / AC handled separately below.
     }
 
     // -----------------------------------------------------------------------
-    // Step 4 — stamp voltage sources
+    // Step 4 — stamp voltage sources (VSRC) and AC sources (ELEC_AC)
     // -----------------------------------------------------------------------
     for (int k = 0; k < vsources.size(); ++k) {
         auto* comp  = vsources[k];
-        const double E = comp->properties.value("voltage", 5.0).toDouble();
+        double E;
+        if (comp->typeId == "ELEC_AC") {
+            const double Vamp = comp->properties.value("voltage",    5.0).toDouble();
+            const double freq = comp->properties.value("frequency", 50.0).toDouble();
+            E = Vamp * std::sin(2.0 * std::numbers::pi * freq * domain.simTime);
+        } else {
+            E = comp->properties.value("voltage", 5.0).toDouble();
+        }
         if (comp->pads.size() < 2) continue;
 
         // pad[0] = + terminal, pad[1] = - terminal (or ground side)
@@ -272,24 +345,67 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
 
         const double vA = (nodeA >= 0 && nodeA < n) ? V(nodeA) : 0.0;
         const double vB = (nodeB >= 0 && nodeB < n) ? V(nodeB) : 0.0;
+        const double vDiff = vA - vB;
 
-        comp->simState["voltageA"] = vA;
-        comp->simState["voltageB"] = vB;
-        comp->simState["voltageDiff"] = vA - vB;
+        comp->simState["voltageA"]   = vA;
+        comp->simState["voltageB"]   = vB;
+        comp->simState["voltageDiff"] = vDiff;
 
-        // Calculate current for resistive elements.
         const QString& type = comp->typeId;
+
+        // ── Resistor / Ammeter ──
         if (type == "ELEC_RES" || type == "ELEC_AMM") {
-            const double R = type == "ELEC_RES"
-                ? comp->properties.value("resistance",     1000.0).toDouble()
-                : comp->properties.value("burdenResistance", 1e-6).toDouble();
-            comp->simState["current"] = (R > 0.0) ? (vA - vB) / R : 0.0;
+            const double R = (type == "ELEC_RES")
+                ? comp->properties.value("resistance",      1000.0).toDouble()
+                : comp->properties.value("burdenResistance",   1e-6).toDouble();
+            comp->simState["current"] = (R > 0.0) ? vDiff / R : 0.0;
         }
+        // ── Voltmeter ──
         else if (type == "ELEC_VOLTM") {
             comp->simState["current"] = 0.0;
         }
+        // ── Switch ──
+        else if (type == "ELEC_SW") {
+            const bool closed = comp->properties.value("closed", true).toBool();
+            const double R = closed ? 0.001 : 1e9;
+            comp->simState["current"] = vDiff / R;
+        }
+        // ── Fuse ──
+        else if (type == "ELEC_FUSE") {
+            const double R = comp->destroyed ? 1e9
+                : comp->properties.value("resistance", 0.01).toDouble();
+            const double I = vDiff / R;
+            comp->simState["current"] = I;
+            // Blow the fuse if current exceeds rating.
+            if (!comp->destroyed) {
+                const double rating = comp->properties.value("currentRating", 0.5).toDouble();
+                if (std::abs(I) > rating) {
+                    comp->destroyed = true;
+                }
+            }
+        }
+        // ── Capacitor ──
+        else if (type == "ELEC_CAP") {
+            const double C    = comp->properties.value("capacitance", 100e-6).toDouble();
+            const double G_eq = (dt > 1e-12) ? C / dt : 0.0;
+            const double V_prev = comp->simState.value("v_cap", 0.0).toDouble();
+            // I = G_eq*(Va-Vb) - G_eq*V_prev
+            comp->simState["current"] = G_eq * (vDiff - V_prev);
+            comp->simState["v_cap"]   = vDiff;  // update for next tick
+        }
+        // ── Diode / LED ──
+        else if (type == "ELEC_DIODE" || type == "ELEC_LED") {
+            const double Vf  = comp->properties.value("forwardVoltage",
+                                   (type == "ELEC_LED") ? 2.0 : 0.7).toDouble();
+            const double Ron = comp->properties.value("onResistance",
+                                   (type == "ELEC_LED") ? 5.0 : 0.1).toDouble();
+            const bool glowing = (vDiff > Vf * 0.5);
+            const double R = glowing ? Ron : 1e8;
+            comp->simState["current"] = vDiff / R;
+            comp->simState["glowing"] = glowing;
+        }
 
-        // Voltage source: current is the extra unknown x[n-1+k].
+        // ── Voltage sources (VSRC + AC): current is extra MNA unknown ──
         for (int k = 0; k < vsources.size(); ++k) {
             if (vsources[k] == comp) {
                 const int row = (n - 1) + k;
@@ -297,7 +413,7 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
             }
         }
 
-        // Fire update signal so Properties Panel refreshes.
+        comp->update();
         Q_UNUSED(dt)
     }
 }

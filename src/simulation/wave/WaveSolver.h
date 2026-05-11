@@ -21,8 +21,9 @@ class BaseComponent;
 // WaveFieldOverlay reads field, cols, rows, gridSize to render the pattern.
 // ---------------------------------------------------------------------------
 struct WaveDomain {
-    QList<BaseComponent*> sources;    // WaveSourceComponent objects
+    QList<BaseComponent*> sources;    // WaveSourceComponent / WaveSoundComponent objects
     QList<BaseComponent*> detectors;  // WaveDetectorComponent objects
+    QList<BaseComponent*> barriers;   // WaveBarrierComponent objects (Huygens secondary sources)
 
     std::vector<float> field;         // amplitude grid, row-major, size cols×rows
     int    cols      = 200;           // grid width  (scene width  / gridSize)

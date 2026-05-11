@@ -68,4 +68,47 @@ public:
     void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
 };
 
+// ---------------------------------------------------------------------------
+// PrismComponent  (OPT_PRISM)
+// Equilateral triangular prism.  Rays refract at entry and exit faces using
+// Snell's law with Cauchy dispersion: n(λ) = A + B/λ².
+// Properties: sideLength (px), apexAngle (deg), cauchy_A, cauchy_B
+// ---------------------------------------------------------------------------
+class PrismComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit PrismComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
+// ---------------------------------------------------------------------------
+// FilterComponent  (OPT_FILTER)
+// Coloured optical filter — only passes wavelengths within a band-pass window.
+// Rays outside [centerWavelength ± bandwidth/2] are absorbed.
+// Properties: centerWavelength (nm), bandwidth (nm), transmittance (0–1)
+// ---------------------------------------------------------------------------
+class FilterComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit FilterComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
+// ---------------------------------------------------------------------------
+// SlitComponent  (OPT_SLIT)
+// Single or double slit aperture.  Only rays passing through the open slit
+// gap(s) continue; all others are blocked.
+// Properties: slitWidth (px), slitSeparation (px), numSlits (1 or 2),
+//             screenLength (px)
+// ---------------------------------------------------------------------------
+class SlitComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit SlitComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
 void registerOpticsComponents(ComponentRegistry& registry);

@@ -296,6 +296,190 @@ void AnchorComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* o
 }
 
 // ===========================================================================
+// PendulumComponent
+// ===========================================================================
+
+PendulumComponent::PendulumComponent(QGraphicsItem* parent)
+    : BaseComponent(parent),
+      pivotPad{ QPointF(0.0, 0.0), PadType::Bidirectional, DomainType::Mechanical, "pivot", {}, false }
+{
+    typeId      = "MOT_PENDULUM";
+    displayName = "Pendulum";
+    pads.append(&pivotPad);
+}
+
+QRectF PendulumComponent::boundingRect() const
+{
+    const double L = properties.value("length", 100.0).toDouble();
+    const double r = properties.value("bobRadius", 12.0).toDouble();
+    return QRectF(-(L + r + 4.0), -(r + 4.0), 2.0 * (L + r + 4.0), L + 2.0 * r + 8.0);
+}
+
+void PendulumComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const bool   selected = option->state & QStyle::State_Selected;
+    const double L        = properties.value("length",    100.0).toDouble();
+    const double r        = properties.value("bobRadius",  12.0).toDouble();
+    const double ang0     = properties.value("angle",      30.0).toDouble();
+
+    // Current arm angle in scene (from simState if running, else from property).
+    const double angleDeg = simState.contains("angle")
+        ? simState["angle"].toDouble() * 180.0 / M_PI
+        : ang0;
+    const double angleRad = angleDeg * M_PI / 180.0;
+
+    // Bob position (local coordinates: pivot at origin, positive Y = down).
+    const QPointF bob(L * std::sin(angleRad), L * std::cos(angleRad));
+
+    // Arm.
+    painter->setPen(motionPen(selected));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawLine(QPointF(0.0, 0.0), bob);
+
+    // Pivot dot.
+    painter->setBrush(QColor(60, 70, 80));
+    painter->drawEllipse(QPointF(0.0, 0.0), 5.0, 5.0);
+
+    // Bob.
+    const QColor bobFill = destroyed ? QColor(255, 235, 235) : QColor(160, 200, 255);
+    painter->setBrush(bobFill);
+    painter->setPen(motionPen(selected));
+    painter->drawEllipse(bob, r, r);
+
+    // Angular velocity indicator.
+    if (simState.contains("omega")) {
+        const double omega = simState["omega"].toDouble();
+        const QString omStr = QString("ω=%1").arg(omega, 0, 'f', 1);
+        painter->setPen(QColor(35, 42, 50));
+        painter->drawText(QRectF(bob.x() + r + 4.0, bob.y() - 10.0, 80.0, 20.0),
+                          Qt::AlignLeft | Qt::AlignVCenter, omStr);
+    }
+
+    // Ground hatching at pivot.
+    painter->setPen(QPen(QColor(80, 90, 100), 1.5));
+    painter->drawLine(QPointF(-16.0, -6.0), QPointF(16.0, -6.0));
+    for (int i = -3; i <= 3; ++i)
+        painter->drawLine(QPointF(i * 5.0, -6.0), QPointF(i * 5.0 - 4.0, -12.0));
+}
+
+// ===========================================================================
+// RampComponent
+// ===========================================================================
+
+RampComponent::RampComponent(QGraphicsItem* parent)
+    : BaseComponent(parent)
+{
+    typeId      = "MOT_RAMP";
+    displayName = "Ramp";
+}
+
+QRectF RampComponent::boundingRect() const
+{
+    const double L = properties.value("length", 140.0).toDouble();
+    return QRectF(-L * 0.5 - 4.0, -20.0, L + 8.0, 50.0);
+}
+
+void RampComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const double L   = properties.value("length", 140.0).toDouble();
+    const bool   sel = option->state & QStyle::State_Selected;
+
+    // Ramp surface: horizontal line (rotation of the item provides the slope).
+    const QColor fill = destroyed ? QColor(255, 235, 235) : QColor(180, 190, 195);
+    painter->setPen(QPen(sel ? QColor(28, 100, 242) : QColor(35, 42, 50),
+                         sel ? 2.5 : 2.0));
+    painter->setBrush(fill);
+
+    const QPolygonF triangle {
+        QPointF(-L * 0.5, 0.0),
+        QPointF( L * 0.5, 0.0),
+        QPointF(-L * 0.5, 32.0),
+    };
+    painter->drawPolygon(triangle);
+
+    // Hatch fill indicating solid body.
+    painter->setPen(QPen(QColor(120, 130, 140), 1.0));
+    const int steps = static_cast<int>(L / 20.0);
+    for (int i = 1; i < steps; ++i) {
+        const double x = -L * 0.5 + i * (L / steps);
+        const double y0 = 0.0;
+        const double y1 = std::min(32.0, (x + L * 0.5) * 32.0 / L);
+        painter->drawLine(QPointF(x, y0), QPointF(x, y1));
+    }
+
+    // Label.
+    painter->setPen(QColor(35, 42, 50));
+    painter->drawText(QRectF(-L * 0.5, 34.0, L, 14.0), Qt::AlignCenter, displayName);
+}
+
+// ===========================================================================
+// RopeComponent
+// ===========================================================================
+
+RopeComponent::RopeComponent(QGraphicsItem* parent)
+    : BaseComponent(parent),
+      padStorage{
+          ConnectionPad{ QPointF(-48.0, 0.0), PadType::Bidirectional, DomainType::Mechanical, "a", {}, false },
+          ConnectionPad{ QPointF( 48.0, 0.0), PadType::Bidirectional, DomainType::Mechanical, "b", {}, false },
+      }
+{
+    typeId      = "MOT_ROPE";
+    displayName = "Rope";
+    pads.append(&padStorage[0]);
+    pads.append(&padStorage[1]);
+}
+
+QRectF RopeComponent::boundingRect() const
+{
+    return QRectF(-2000.0, -2000.0, 4000.0, 4000.0);
+}
+
+void RopeComponent::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*)
+{
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const bool selected = option->state & QStyle::State_Selected;
+    painter->setPen(QPen(selected ? QColor(28, 100, 242) : QColor(120, 80, 40), 2.5));
+    painter->setBrush(Qt::NoBrush);
+
+    QPointF pA = padStorage[0].localPos;
+    QPointF pB = padStorage[1].localPos;
+
+    if (simState.value("hasLiveEndpoints", false).toBool()) {
+        pA = mapFromScene(QPointF(simState["endAx"].toDouble(), simState["endAy"].toDouble()));
+        pB = mapFromScene(QPointF(simState["endBx"].toDouble(), simState["endBy"].toDouble()));
+    }
+
+    // Draw as a straight line (taut rope) or catenary sag if slack.
+    const bool taut = simState.value("taut", true).toBool();
+    if (taut || !simState.contains("hasLiveEndpoints")) {
+        painter->drawLine(pA, pB);
+    } else {
+        // Simple sag approximation: draw a quadratic bezier with mid-point sagging.
+        const QPointF mid = (pA + pB) * 0.5 + QPointF(0.0, 20.0);
+        QPainterPath path;
+        path.moveTo(pA);
+        path.quadTo(mid, pB);
+        painter->drawPath(path);
+    }
+
+    // Endpoint dots.
+    painter->setBrush(QColor(120, 80, 40));
+    painter->setPen(Qt::NoPen);
+    painter->drawEllipse(padStorage[0].localPos, 3.5, 3.5);
+    painter->drawEllipse(padStorage[1].localPos, 3.5, 3.5);
+
+    if (!simState.value("hasLiveEndpoints", false).toBool()) {
+        painter->setPen(QColor(35, 42, 50));
+        painter->drawText(QRectF(-50.0, 14.0, 100.0, 16.0), Qt::AlignCenter, displayName);
+    }
+}
+
+// ===========================================================================
 // Registration
 // ===========================================================================
 
@@ -339,4 +523,34 @@ void registerMotionComponents(ComponentRegistry& registry)
         motionDescriptor("MOT_ANCHOR", "Anchor",
                          "Fixed mount point for springs (zero mass, immovable)"),
         [] { return new AnchorComponent(); });
+
+    registry.registerType(
+        motionDescriptor("MOT_PENDULUM", "Pendulum",
+                         "Simple gravity pendulum — set angle and length, watch it swing",
+                         {
+                             { "length",    120.0 },
+                             { "angle",      30.0 },  // degrees from vertical
+                             { "damping",     0.05 },
+                             { "bobRadius",  12.0  },
+                         }),
+        [] { return new PendulumComponent(); });
+
+    registry.registerType(
+        motionDescriptor("MOT_RAMP", "Ramp",
+                         "Inclined surface — balls roll and slide down it (rotate to set angle)",
+                         {
+                             { "length",      140.0 },
+                             { "restitution",   0.5 },
+                         }),
+        [] { return new RampComponent(); });
+
+    registry.registerType(
+        motionDescriptor("MOT_ROPE", "Rope",
+                         "Tension-only rope — pulls bodies together when taut, slack when loose",
+                         {
+                             { "length",     120.0 },
+                             { "stiffness", 2000.0 },
+                             { "damping",      5.0 },
+                         }),
+        [] { return new RopeComponent(); });
 }

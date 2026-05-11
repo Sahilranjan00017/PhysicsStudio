@@ -50,14 +50,45 @@ struct MotionSpring {
 };
 
 // ---------------------------------------------------------------------------
+// MotionPendulum
+// Simple gravity pendulum with angle-based ODE integration.
+// Pivot is fixed in scene space; bob moves on a circular arc.
+// ---------------------------------------------------------------------------
+struct MotionPendulum {
+    BaseComponent* component = nullptr;  // back-pointer; not owned
+
+    QPointF pivot;            // scene-space pivot position (component pos())
+    double  length   = 100.0; // arm length in pixels
+    double  angle    = 0.3;   // current angle (rad from vertical downward)
+    double  omega    = 0.0;   // angular velocity (rad/s)
+    double  damping  = 0.05;  // viscous damping coefficient (1/s)
+    double  bobRadius = 12.0; // bob visual radius (px)
+};
+
+// ---------------------------------------------------------------------------
+// MotionRamp
+// Inclined line segment used as a one-sided collision surface.
+// Balls that penetrate the ramp surface receive a normal impulse.
+// ---------------------------------------------------------------------------
+struct MotionRamp {
+    BaseComponent* component = nullptr;
+
+    QPointF p1;               // scene endpoint A (left end of ramp in local space)
+    QPointF p2;               // scene endpoint B (right end of ramp in local space)
+    double  restitution = 0.7;
+};
+
+// ---------------------------------------------------------------------------
 // MotionDomain
 // Complete mechanical scene snapshot.  Persists across ticks so velocity
 // state is maintained.  Rebuilt from scene on structural changes (not on
 // every tick).
 // ---------------------------------------------------------------------------
 struct MotionDomain {
-    QList<MotionBody>   bodies;
-    QList<MotionSpring> springs;
+    QList<MotionBody>     bodies;
+    QList<MotionSpring>   springs;
+    QList<MotionPendulum> pendulums;
+    QList<MotionRamp>     ramps;
 
     double gravity        = 980.0;   // px/s²  (9.8 m/s² assuming 1 px ≈ 1 cm)
     bool   hasBoundary    = true;
@@ -83,5 +114,7 @@ private:
     static void integrate(MotionDomain& domain, double dt);
     static void resolveCollisions(MotionDomain& domain);
     static void enforceBoundary(MotionDomain& domain);
+    static void stepPendulums(MotionDomain& domain, double dt);
+    static void resolveRampCollisions(MotionDomain& domain);
     static void writeBack(MotionDomain& domain);
 };

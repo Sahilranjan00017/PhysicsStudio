@@ -373,7 +373,7 @@ void MainWindow::refreshMotionDomain()
     domain.boundaryTop    = sr.top();
     domain.boundaryBottom = sr.bottom();
 
-    // Map from component pointer → index in domain.bodies (for spring wiring).
+    // Map from component pointer → index in domain.bodies (for spring/rope wiring).
     QMap<BaseComponent*, int> bodyIndex;
 
     // --- Pass 1: build bodies from Ball / Block / Anchor components. ---
@@ -398,7 +398,6 @@ void MainWindow::refreshMotionDomain()
             bodyIndex[comp] = domain.bodies.size();
             domain.bodies.append(body);
 
-            // Clear stale sim-state so the ball redraws cleanly.
             comp->simState.remove("vx");
             comp->simState.remove("vy");
             comp->simState.remove("speed");
@@ -433,9 +432,9 @@ void MainWindow::refreshMotionDomain()
         }
     }
 
-    // --- Pass 2: build springs from Spring components. ---
+    // --- Pass 2: build springs and ropes. ---
     for (auto* comp : canvasView->components()) {
-        if (comp->typeId != "MOT_SPRING") continue;
+        if (comp->typeId != "MOT_SPRING" && comp->typeId != "MOT_ROPE") continue;
 
         auto resolveBody = [&](const QString& padId, QPointF& outAnchor) -> int {
             const ConnectionPad* pad = comp->padById(padId);
@@ -453,17 +452,56 @@ void MainWindow::refreshMotionDomain()
         };
 
         MotionSpring spring;
-        spring.bodyA       = resolveBody("a", spring.anchorA);
-        spring.bodyB       = resolveBody("b", spring.anchorB);
-        spring.stiffness   = comp->properties.value("stiffness",  200.0).toDouble();
-        spring.restLength  = comp->properties.value("restLength", 100.0).toDouble();
-        spring.damping     = comp->properties.value("damping",      2.0).toDouble();
+        spring.bodyA     = resolveBody("a", spring.anchorA);
+        spring.bodyB     = resolveBody("b", spring.anchorB);
+        if (comp->typeId == "MOT_ROPE") {
+            spring.stiffness  = comp->properties.value("stiffness",  2000.0).toDouble();
+            spring.restLength = comp->properties.value("length",      120.0).toDouble();
+            spring.damping    = comp->properties.value("damping",       5.0).toDouble();
+        } else {
+            spring.stiffness  = comp->properties.value("stiffness",  200.0).toDouble();
+            spring.restLength = comp->properties.value("restLength", 100.0).toDouble();
+            spring.damping    = comp->properties.value("damping",      2.0).toDouble();
+        }
         spring.springComponent = comp;
         domain.springs.append(spring);
 
-        // Clear stale live-endpoint flag so the spring redraws statically.
         comp->simState.remove("hasLiveEndpoints");
+        comp->simState.remove("taut");
         comp->update();
+    }
+
+    // --- Pass 3: build pendulums. ---
+    for (auto* comp : canvasView->components()) {
+        if (comp->typeId != "MOT_PENDULUM") continue;
+
+        MotionPendulum pend;
+        pend.component = comp;
+        pend.pivot     = comp->pos();
+        pend.length    = comp->properties.value("length",    120.0).toDouble();
+        pend.damping   = comp->properties.value("damping",     0.05).toDouble();
+        pend.bobRadius = comp->properties.value("bobRadius",  12.0).toDouble();
+
+        // Restore angle/omega from simState if present (persists across pauses).
+        pend.angle = comp->simState.contains("angle")
+            ? comp->simState["angle"].toDouble()
+            : comp->properties.value("angle", 30.0).toDouble() * M_PI / 180.0;
+        pend.omega = comp->simState.value("omega", 0.0).toDouble();
+
+        domain.pendulums.append(pend);
+    }
+
+    // --- Pass 4: build ramps. ---
+    for (auto* comp : canvasView->components()) {
+        if (comp->typeId != "MOT_RAMP") continue;
+
+        const double L = comp->properties.value("length", 140.0).toDouble();
+        MotionRamp ramp;
+        ramp.component   = comp;
+        ramp.p1          = comp->mapToScene(QPointF(-L * 0.5, 0.0));
+        ramp.p2          = comp->mapToScene(QPointF( L * 0.5, 0.0));
+        ramp.restitution = comp->properties.value("restitution", 0.5).toDouble();
+        domain.ramps.append(ramp);
     }
 
     simulationLoop->setMotionDomain(std::move(domain));
@@ -474,7 +512,9 @@ void MainWindow::refreshOpticsDomain()
     OpticalDomain domain;
     for (auto* comp : canvasView->components()) {
         const QString& t = comp->typeId;
-        if (t == "OPT_SRC" || t == "OPT_MIRROR" || t == "OPT_LENS" || t == "OPT_SCREEN")
+        if (t == "OPT_SRC"    || t == "OPT_MIRROR" || t == "OPT_LENS"
+         || t == "OPT_SCREEN" || t == "OPT_PRISM"  || t == "OPT_FILTER"
+         || t == "OPT_SLIT")
             domain.components << comp;
     }
     simulationLoop->setOpticalDomain(std::move(domain));
@@ -490,10 +530,12 @@ void MainWindow::refreshWaveDomain()
     WaveDomain domain;
 
     for (auto* comp : canvasView->components()) {
-        if (comp->typeId == "WAV_SRC")
+        if (comp->typeId == "WAV_SRC" || comp->typeId == "WAV_SOUND")
             domain.sources << comp;
         else if (comp->typeId == "WAV_DET")
             domain.detectors << comp;
+        else if (comp->typeId == "WAV_BARRIER")
+            domain.barriers << comp;
     }
 
     // Clear detector readings when domain is rebuilt.

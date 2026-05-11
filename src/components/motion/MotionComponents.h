@@ -87,5 +87,52 @@ private:
     ConnectionPad anchorPad;
 };
 
-// Registers Ball, Block, Spring, Anchor with the ComponentRegistry.
+// ---------------------------------------------------------------------------
+// PendulumComponent  (MOT_PENDULUM)
+// Simple gravity pendulum: pivot point + rigid arm + bob.
+// Physics: θ'' = -(g/L)·sin(θ) − damping·θ', integrated in MotionSolver.
+// Properties: length (px), angle (deg), damping, bobRadius
+// simState  : angle (rad), omega (rad/s), bobX, bobY (set by solver)
+// ---------------------------------------------------------------------------
+class PendulumComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit PendulumComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    ConnectionPad pivotPad;
+};
+
+// ---------------------------------------------------------------------------
+// RampComponent  (MOT_RAMP)
+// Inclined rigid surface — balls slide on its face using OBB collision.
+// The component local X axis lies along the ramp surface.
+// Properties: length (px), restitution
+// ---------------------------------------------------------------------------
+class RampComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit RampComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+};
+
+// ---------------------------------------------------------------------------
+// RopeComponent  (MOT_ROPE)
+// Tension-only rope between two mechanical pads.
+// Identical to spring but force = 0 when length ≤ restLength (slack).
+// Properties: length (px, = rest length), stiffness, damping
+// ---------------------------------------------------------------------------
+class RopeComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit RopeComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+private:
+    std::array<ConnectionPad, 2> padStorage;  // "a" and "b" endpoints
+};
+
+// Registers Ball, Block, Spring, Anchor, Pendulum, Ramp, Rope.
 void registerMotionComponents(ComponentRegistry& registry);

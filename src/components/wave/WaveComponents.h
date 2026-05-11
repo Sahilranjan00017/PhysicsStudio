@@ -38,4 +38,34 @@ public:
     void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
 };
 
+// ---------------------------------------------------------------------------
+// WaveBarrierComponent  (WAV_BARRIER)
+// Opaque barrier with one or two slits.
+// In the wave solver, slit positions become Huygens secondary point sources.
+// Properties : barrierLength (px), numSlits (1 or 2), slitWidth (px),
+//              slitSeparation (px), frequency (Hz), amplitude
+// simState   : (reads sources' frequency/amplitude from properties)
+// ---------------------------------------------------------------------------
+class WaveBarrierComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit WaveBarrierComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
+// ---------------------------------------------------------------------------
+// WaveDetectorComponent  (WAV_SOUND)
+// Sound speaker — visual representation of a sound source.
+// Stamped identically to WAV_SRC in the wave solver; the icon differentiates it.
+// Properties : frequency (Hz), amplitude, phase (deg)
+// ---------------------------------------------------------------------------
+class WaveSoundComponent final : public BaseComponent {
+    Q_OBJECT
+public:
+    explicit WaveSoundComponent(QGraphicsItem* parent = nullptr);
+    QRectF boundingRect() const override;
+    void   paint(QPainter*, const QStyleOptionGraphicsItem*, QWidget*) override;
+};
+
 void registerWaveComponents(ComponentRegistry& registry);

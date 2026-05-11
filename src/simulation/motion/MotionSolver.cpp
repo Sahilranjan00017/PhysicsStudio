@@ -119,14 +119,18 @@ void resolveBallBlock(MotionBody& ball, MotionBody& block)
 // ---------------------------------------------------------------------------
 void MotionSolver::step(MotionDomain& domain, double dt)
 {
-    if (domain.bodies.isEmpty())
-        return;
+    // Pendulums are self-contained ODE integrators (no bodies list needed).
+    stepPendulums(domain, dt);
 
-    accumulateForces(domain);
-    integrate(domain, dt);
-    resolveCollisions(domain);
-    if (domain.hasBoundary)
-        enforceBoundary(domain);
+    if (!domain.bodies.isEmpty()) {
+        accumulateForces(domain);
+        integrate(domain, dt);
+        resolveCollisions(domain);
+        resolveRampCollisions(domain);
+        if (domain.hasBoundary)
+            enforceBoundary(domain);
+    }
+
     writeBack(domain);
 }
 
@@ -155,23 +159,32 @@ void MotionSolver::accumulateForces(MotionDomain& domain)
 
         const QPointF delta = pB - pA;
         double len = length(delta);
-        if (len < 1.0) len = 1.0;  // avoid div-by-zero for coincident points
+        if (len < 1.0) len = 1.0;
 
-        const QPointF dir = delta / len;  // unit vector A → B
+        const QPointF dir = delta / len;
 
-        // Hooke: F = k * (len - rest)
-        const double Fspring = sp.stiffness * (len - sp.restLength);
+        // Rope = tension-only spring: no force when compressed (slack).
+        const bool isRope = sp.springComponent
+            && sp.springComponent->typeId == "MOT_ROPE";
+        const double extension = len - sp.restLength;
+        if (isRope && extension <= 0.0) {
+            // Slack — mark taut=false in simState and skip force.
+            if (sp.springComponent)
+                sp.springComponent->simState["taut"] = false;
+            continue;
+        }
+        if (isRope && sp.springComponent)
+            sp.springComponent->simState["taut"] = true;
 
-        // Damping: F_damp = d * (v_rel · dir)
-        const double Fdamp = sp.damping * dot(vB - vA, dir);
-
+        const double Fspring = sp.stiffness * extension;
+        const double Fdamp   = sp.damping * dot(vB - vA, dir);
         const QPointF F = dir * (Fspring + Fdamp);
 
         if (sp.bodyA >= 0 && !domain.bodies[sp.bodyA].fixed)
-            domain.bodies[sp.bodyA].force += F;   // force on A is toward B
+            domain.bodies[sp.bodyA].force += F;
 
         if (sp.bodyB >= 0 && !domain.bodies[sp.bodyB].fixed)
-            domain.bodies[sp.bodyB].force -= F;   // reaction on B is toward A
+            domain.bodies[sp.bodyB].force -= F;
     }
 }
 
@@ -260,6 +273,86 @@ void MotionSolver::enforceBoundary(MotionDomain& domain)
             if (b.pos.y() + b.halfH > domain.boundaryBottom) {
                 b.pos.ry() = domain.boundaryBottom - b.halfH;
                 if (b.vel.y() > 0.0) b.vel.ry() = -b.vel.y() * b.restitution;
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// stepPendulums
+// ODE integration for simple gravity pendulum.
+// θ'' = -(g/L)·sin(θ) − damping·θ'
+// Semi-implicit Euler: ω_new = ω + α·dt; θ_new = θ + ω_new·dt
+// ---------------------------------------------------------------------------
+void MotionSolver::stepPendulums(MotionDomain& domain, double dt)
+{
+    for (auto& pend : domain.pendulums) {
+        const double g     = domain.gravity;
+        const double L     = (pend.length > 1.0) ? pend.length : 1.0;
+        const double alpha = -(g / L) * std::sin(pend.angle) - pend.damping * pend.omega;
+
+        pend.omega += alpha * dt;
+        pend.angle += pend.omega * dt;
+
+        // Compute bob position in scene space.
+        const double bobX = pend.pivot.x() + L * std::sin(pend.angle);
+        const double bobY = pend.pivot.y() + L * std::cos(pend.angle);
+
+        if (pend.component) {
+            pend.component->simState["angle"]  = pend.angle;
+            pend.component->simState["omega"]  = pend.omega;
+            pend.component->simState["bobX"]   = bobX;
+            pend.component->simState["bobY"]   = bobY;
+            pend.component->update();
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// resolveRampCollisions
+// Treat the ramp as an infinite line segment; project the ball onto it
+// and apply a normal impulse if the ball penetrates the surface.
+// ---------------------------------------------------------------------------
+void MotionSolver::resolveRampCollisions(MotionDomain& domain)
+{
+    for (const auto& ramp : domain.ramps) {
+        const QPointF seg = ramp.p2 - ramp.p1;
+        const double  segLenSq = lengthSq(seg);
+        if (segLenSq < 1.0) continue;
+
+        // Unit normal pointing "upward" from the ramp surface.
+        const QPointF along = seg / std::sqrt(segLenSq);
+        // Normal: perpendicular to along, choosing the upward-facing one.
+        QPointF normal(-along.y(), along.x());
+        // Ensure normal points in a generally upward direction (+Y is down in Qt).
+        if (normal.y() > 0.0) { normal = -normal; }
+
+        for (auto& body : domain.bodies) {
+            if (body.fixed || body.shape != MotionBody::Shape::Ball) continue;
+
+            // Project ball centre onto the ramp segment.
+            const QPointF toBall = body.pos - ramp.p1;
+            double t = dot(toBall, along);
+            t = std::clamp(t, 0.0, std::sqrt(segLenSq));
+
+            const QPointF closest = ramp.p1 + along * t;
+            const QPointF diff    = body.pos - closest;
+            const double  dist    = length(diff);
+
+            if (dist >= body.radius || dist < 1e-6) continue;
+
+            // Check we are on the correct (surface) side.
+            if (dot(diff, normal) < 0.0) continue;
+
+            // Positional correction.
+            const double overlap = body.radius - dist;
+            body.pos += normal * overlap;
+
+            // Velocity impulse.
+            const double vRelN = dot(body.vel, normal);
+            if (vRelN < 0.0) {   // approaching
+                const double impulseMag = -(1.0 + ramp.restitution) * vRelN;
+                body.vel += normal * impulseMag;
             }
         }
     }

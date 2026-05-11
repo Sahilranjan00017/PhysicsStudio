@@ -16,6 +16,7 @@ class Wire;
 struct ElectronicsDomain {
     QList<BaseComponent*> components;   // all components with electrical pads
     QList<Wire*>          wires;        // all wires connecting those pads
+    double simTime = 0.0;               // accumulated time (s) — used by AC source
 };
 
 // ---------------------------------------------------------------------------
