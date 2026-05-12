@@ -3,7 +3,6 @@
 
   "configurePresets": [
 
-    // ── Windows (MSVC 2022, x64) ─────────────────────────────────────────────
     {
       "name":        "windows-msvc-release",
       "displayName": "Windows MSVC Release (x64)",
@@ -27,7 +26,6 @@
       }
     },
 
-    // ── macOS (Ninja, release / debug) ───────────────────────────────────────
     {
       "name":        "macos-release",
       "displayName": "macOS Release (Ninja)",
@@ -61,7 +59,6 @@
       }
     },
 
-    // ── Linux (Ninja, release / debug) ───────────────────────────────────────
     {
       "name":        "linux-release",
       "displayName": "Linux Release (Ninja)",
