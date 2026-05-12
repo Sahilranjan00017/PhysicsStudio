@@ -2,6 +2,7 @@
 
 #include <QMainWindow>
 #include <QString>
+#include <QTimer>
 
 class CanvasView;
 class DataLogger;
@@ -51,6 +52,7 @@ private:
     UndoRedoStack*    undoRedoStack    = nullptr;
     DataLogger*       dataLogger       = nullptr;
     GraphPanel*       graphPanel       = nullptr;
+    QTimer            m_renderTimer;          // 30 FPS render — decoupled from physics
     QString           currentProjectPath;
     bool              m_dirty          = false;
 };

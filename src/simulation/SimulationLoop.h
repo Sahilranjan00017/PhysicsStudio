@@ -50,7 +50,7 @@ private slots:
     void tick();
 
 private:
-    QTimer  timer;
+    QTimer  m_timer;
     bool    running        = false;
     double  speed          = 1.0;
     double  simulationTime = 0.0;

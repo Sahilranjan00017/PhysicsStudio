@@ -82,7 +82,8 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends \
             qt6-base-dev qt6-base-private-dev \
-            libqt6opengl6-dev libgl1-mesa-dev \
+            libqt6opengl6-dev libqt6openglwidgets6 qt6-base-dev \
+            libgl1-mesa-dev libgles2-mesa-dev \
             cmake ninja-build \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
             libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \

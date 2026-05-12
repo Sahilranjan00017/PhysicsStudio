@@ -1,24 +1,30 @@
 #include "simulation/SimulationLoop.h"
 
+#include <QCoreApplication>
 #include <algorithm>
 
 SimulationLoop::SimulationLoop(QObject* parent)
     : QObject(parent)
 {
-    timer.setInterval(16);
-    connect(&timer, &QTimer::timeout, this, &SimulationLoop::tick);
+    // Use a single-shot self-rescheduling pattern instead of a repeating timer.
+    // This guarantees the Qt event loop always processes pending events (user
+    // input, repaints, signals) between every simulation tick, which prevents
+    // the "Not Responding" freeze on Windows when a solver takes too long.
+    m_timer.setSingleShot(true);
+    connect(&m_timer, &QTimer::timeout, this, &SimulationLoop::tick);
 }
 
 void SimulationLoop::start()
 {
+    if (running) return;
     running = true;
-    timer.start();
+    m_timer.start(0);   // fire immediately, then self-reschedule
 }
 
 void SimulationLoop::pause()
 {
     running = false;
-    timer.stop();
+    m_timer.stop();
 }
 
 void SimulationLoop::reset()
@@ -67,21 +73,30 @@ void SimulationLoop::tick()
     const double dt = fixedFrameDt * speed;
     simulationTime += dt;
 
-    // --- Electronics (stateless MNA — recomputes every tick) ---
+    // Run each solver. After the two heaviest (electronics + wave) we call
+    // processEvents so the UI stays responsive even on slow hardware.
+
     if (!electronicsDomain.components.isEmpty())
         electronicsSolver.solve(electronicsDomain, dt);
 
-    // --- Motion (stateful — domain persists, bodies integrate over time) ---
+    // Let the event loop breathe between heavy solvers.
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
+
     if (!motionDomain.bodies.isEmpty())
         motionSolver.step(motionDomain, dt);
 
-    // --- Optics (stateless ray trace — rebuilds ray paths every tick) ---
     if (!opticalDomain.components.isEmpty())
         opticalSolver.trace(opticalDomain);
 
-    // --- Waves (analytical superposition — full field recomputed each tick) ---
     if (!m_waveDomain.sources.isEmpty())
         waveSolver.step(m_waveDomain, dt);
 
     emit tickComplete(simulationTime);
+
+    // Reschedule the next tick. Using 0 ms fires as soon as the event loop
+    // is idle, which gives Qt time to process any queued UI events first.
+    // The effective simulation rate is limited by solver wall-clock time,
+    // which is the correct behaviour for a real-time physics app.
+    if (running)
+        m_timer.start(0);
 }

@@ -22,7 +22,9 @@
 #include <QLineF>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QOpenGLWidget>
 #include <QPainter>
+#include <QSurfaceFormat>
 #include <QtGlobal>
 
 namespace {
@@ -50,11 +52,30 @@ CanvasView::CanvasView(QWidget* parent)
 {
     scene->setSceneRect(0, 0, 2400, 1600);
     setScene(scene);
+
+    // ── Hardware-accelerated OpenGL viewport ──────────────────────────────────
+    // Replaces the default software-rendered QWidget viewport.
+    // On Windows this eliminates the "Not Responding" freeze caused by
+    // CPU-side painting of the wave field and optics overlays every frame.
+    auto* glViewport = new QOpenGLWidget(this);
+    setViewport(glViewport);
+
+    // ── Rendering optimisations ───────────────────────────────────────────────
     setRenderHint(QPainter::Antialiasing, true);
+    setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+    // Only repaint the regions that actually changed (components that moved).
+    // Avoids full-canvas repaints on every simulation tick.
+    setViewportUpdateMode(QGraphicsView::SmartViewportUpdate);
+
+    // Cache the grid background as a pixmap so drawBackground() only runs
+    // when the view is scrolled or resized, not on every frame.
+    setCacheMode(QGraphicsView::CacheBackground);
+
     setDragMode(QGraphicsView::RubberBandDrag);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setAcceptDrops(true);
-    setFocusPolicy(Qt::StrongFocus);  // ensure key events are received
+    setFocusPolicy(Qt::StrongFocus);
 }
 
 QGraphicsScene* CanvasView::graphicsScene() const

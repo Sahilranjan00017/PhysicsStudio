@@ -107,16 +107,26 @@ MainWindow::MainWindow(QWidget* parent)
                 }
             });
 
-    // After each solver tick, repaint the canvas so live values show up,
-    // refresh the optics/wave overlays, and feed the data logger.
+    // Simulation ticks only update data — rendering is handled by m_renderTimer.
+    // Decoupling physics from rendering means the UI stays smooth even when
+    // solvers are slow: the render timer fires at 30 FPS regardless.
     connect(simulationLoop, &SimulationLoop::tickComplete,
             this, [this](double simTime) {
-                if (opticsOverlay)    opticsOverlay->update();
-                if (waveFieldOverlay) waveFieldOverlay->update();
                 dataLogger->onTick(simTime);
-                canvasView->viewport()->update();
                 statusBar()->showMessage(QString("t = %1 s").arg(simTime, 0, 'f', 2));
             });
+
+    // Independent 30 FPS render timer — repaints overlays and canvas.
+    // Running always (not just during simulation) so the canvas is responsive
+    // while paused too (e.g. dragging components shows live optics preview).
+    m_renderTimer.setInterval(33);   // ~30 FPS
+    m_renderTimer.setTimerType(Qt::CoarseTimer);
+    connect(&m_renderTimer, &QTimer::timeout, this, [this]() {
+        if (opticsOverlay)    opticsOverlay->update();
+        if (waveFieldOverlay) waveFieldOverlay->update();
+        canvasView->viewport()->update();
+    });
+    m_renderTimer.start();
 }
 
 MainWindow::~MainWindow() = default;
