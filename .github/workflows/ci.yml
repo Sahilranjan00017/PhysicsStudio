@@ -99,6 +99,8 @@ jobs:
 
       # ── Test ──────────────────────────────────────────────────────────────
       - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen   # no display on CI runners
         run: ctest --preset ${{ matrix.preset }} --output-on-failure
 
       # ── Package ───────────────────────────────────────────────────────────
@@ -185,7 +187,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             clang-tidy clang \
             qt6-base-dev qt6-base-private-dev \
-            libqt6opengl6-dev cmake ninja-build
+            libqt6opengl6-dev libgl1-mesa-dev cmake ninja-build
 
       - name: Configure (debug, with compile_commands)
         run: |
