@@ -248,6 +248,10 @@ elseif(WIN32)
             PATTERN "*.exe"
             PATTERN "plugins/*"
     )
+    # Bundle VC++ 2022 redist if it was downloaded during CI build
+    if(EXISTS "${CMAKE_BINARY_DIR}/vc_redist.x64.exe")
+        install(FILES "${CMAKE_BINARY_DIR}/vc_redist.x64.exe" DESTINATION .)
+    endif()
 else()
     # Linux: binary → /usr/local/bin, desktop entry → share/applications.
     install(TARGETS PhysicsSimulationStudio RUNTIME DESTINATION bin)
@@ -311,6 +315,9 @@ if(WIN32)
  '$INSTDIR\\\\PhysicsSimulationStudio.exe'")
     set(CPACK_NSIS_DELETE_ICONS_EXTRA
         "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Physics Studio.lnk'")
+    # Install VC++ 2022 Redistributable silently so the app always starts
+    set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
+        "ExecWait '\\\"$INSTDIR\\\\vc_redist.x64.exe\\\" /install /quiet /norestart'")
 
 elseif(APPLE)
     # ── macOS: Drag-and-drop DMG ─────────────────────────────────────────────

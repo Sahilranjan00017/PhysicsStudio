@@ -103,6 +103,15 @@ jobs:
           QT_QPA_PLATFORM: offscreen   # no display on CI runners
         run: ctest --preset ${{ matrix.preset }} --output-on-failure
 
+      # ── Bundle VC++ redist into Windows installer ─────────────────────────
+      - name: Download VC++ 2022 Redistributable (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" `
+            -OutFile "build/windows-msvc-release/vc_redist.x64.exe"
+          Write-Host "VC++ redist downloaded: $(Get-Item build/windows-msvc-release/vc_redist.x64.exe | Select-Object -ExpandProperty Length) bytes"
+
       # ── Package ───────────────────────────────────────────────────────────
       - name: Create installer / package (non-Linux)
         if: runner.os != 'Linux'
