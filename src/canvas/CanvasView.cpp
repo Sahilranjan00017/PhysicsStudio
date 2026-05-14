@@ -22,9 +22,7 @@
 #include <QLineF>
 #include <QMimeData>
 #include <QMouseEvent>
-#include <QOpenGLWidget>
 #include <QPainter>
-#include <QSurfaceFormat>
 #include <QtGlobal>
 
 namespace {
@@ -53,24 +51,27 @@ CanvasView::CanvasView(QWidget* parent)
     scene->setSceneRect(0, 0, 2400, 1600);
     setScene(scene);
 
-    // ── Hardware-accelerated OpenGL viewport ──────────────────────────────────
-    // Replaces the default software-rendered QWidget viewport.
-    // On Windows this eliminates the "Not Responding" freeze caused by
-    // CPU-side painting of the wave field and optics overlays every frame.
-    auto* glViewport = new QOpenGLWidget(this);
-    setViewport(glViewport);
-
-    // ── Rendering optimisations ───────────────────────────────────────────────
-    setRenderHint(QPainter::Antialiasing, true);
+    // ── Rendering optimisations (no OpenGL requirement) ───────────────────────
+    // Qt 6 on Windows uses ANGLE (Direct3D 11 backend) by default, which is
+    // hardware-accelerated and works on ALL Windows 10/11 hardware including
+    // Intel integrated graphics and VMs — no native OpenGL driver needed.
+    // We do NOT force QOpenGLWidget here because it requires native OpenGL 3.3
+    // which hangs at startup on machines without proper OpenGL drivers.
+    setRenderHint(QPainter::Antialiasing,         true);
     setRenderHint(QPainter::SmoothPixmapTransform, true);
+    setRenderHint(QPainter::TextAntialiasing,      true);
 
-    // Only repaint the regions that actually changed (components that moved).
-    // Avoids full-canvas repaints on every simulation tick.
+    // Only repaint regions that actually changed — avoids full-canvas
+    // repaints on every simulation tick (huge CPU saving).
     setViewportUpdateMode(QGraphicsView::SmartViewportUpdate);
 
-    // Cache the grid background as a pixmap so drawBackground() only runs
-    // when the view is scrolled or resized, not on every frame.
+    // Cache the dot-grid background as a pixmap — drawn once, reused until
+    // the view is scrolled or resized.
     setCacheMode(QGraphicsView::CacheBackground);
+
+    // Clip items to scene rect so overlays don't bleed outside the canvas.
+    setOptimizationFlag(QGraphicsView::DontSavePainterState, true);
+    setOptimizationFlag(QGraphicsView::DontAdjustForAntialiasing, false);
 
     setDragMode(QGraphicsView::RubberBandDrag);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);

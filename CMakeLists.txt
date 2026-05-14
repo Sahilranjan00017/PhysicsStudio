@@ -28,7 +28,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGLWidgets Test)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
 
 # ---------------------------------------------------------------------------
 # Eigen3 (header-only linear algebra — used by ElectronicsSolver for MNA)
@@ -146,7 +146,7 @@ target_include_directories(PhysicsSimulationStudio PRIVATE
     src
     "${CMAKE_BINARY_DIR}/generated"   # Version.h
 )
-target_link_libraries(PhysicsSimulationStudio PRIVATE Qt6::Widgets Qt6::OpenGLWidgets Eigen3::Eigen)
+target_link_libraries(PhysicsSimulationStudio PRIVATE Qt6::Widgets Eigen3::Eigen)
 
 # ---------------------------------------------------------------------------
 # Compiler flags

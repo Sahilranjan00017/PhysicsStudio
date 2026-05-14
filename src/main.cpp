@@ -1,24 +1,16 @@
 #include "app/MainWindow.h"
 
 #include <QApplication>
-#include <QSurfaceFormat>
 
 int main(int argc, char* argv[])
 {
-    // ── Hardware OpenGL — must be set before QApplication is constructed ──────
-    // On Windows this selects the native OpenGL driver (fast) instead of
-    // ANGLE (software emulation), which is the #1 cause of UI lag on Windows.
-    QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
-    QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
-
-    // Default surface format: disable vsync so the render thread never waits
-    // for a display blanking interval; the simulation timer controls frame rate.
-    QSurfaceFormat fmt;
-    fmt.setSwapInterval(0);          // no vsync
-    fmt.setRenderableType(QSurfaceFormat::OpenGL);
-    fmt.setVersion(3, 3);
-    fmt.setProfile(QSurfaceFormat::CoreProfile);
-    QSurfaceFormat::setDefaultFormat(fmt);
+    // Use Qt's default rendering backend.
+    // On Windows 10/11 this is ANGLE (OpenGL ES over Direct3D 11) which:
+    //   - Works on ALL Windows hardware (Intel, AMD, Nvidia, virtual machines)
+    //   - Is hardware-accelerated via DirectX 11
+    //   - Never hangs at startup unlike forcing native desktop OpenGL
+    // Do NOT set Qt::AA_UseDesktopOpenGL — that requires real OpenGL drivers
+    // which many Windows machines (especially with Intel iGPU) don't have.
 
     QApplication app(argc, argv);
     QApplication::setApplicationName("Physics Simulation Studio");
