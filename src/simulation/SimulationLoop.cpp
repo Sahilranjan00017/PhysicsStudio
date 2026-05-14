@@ -18,7 +18,8 @@ void SimulationLoop::start()
 {
     if (running) return;
     running = true;
-    m_timer.start(0);   // fire immediately, then self-reschedule
+    m_frameTimer.start();   // begin measuring wall-clock time for 60 FPS pacing
+    m_timer.start(0);       // fire immediately, then self-reschedule
 }
 
 void SimulationLoop::pause()
@@ -73,13 +74,16 @@ void SimulationLoop::tick()
     const double dt = fixedFrameDt * speed;
     simulationTime += dt;
 
-    // Run each solver. After the two heaviest (electronics + wave) we call
-    // processEvents so the UI stays responsive even on slow hardware.
+    // ── Run solvers ─────────────────────────────────────────────────────────
+    // After each heavy solver we call processEvents(ExcludeUserInputEvents)
+    // so the Qt event loop can flush pending paint / signal events without
+    // processing new mouse/key input. This prevents "Not Responding" on
+    // Windows even when a single solver tick takes > 16 ms.
 
     if (!electronicsDomain.components.isEmpty())
         electronicsSolver.solve(electronicsDomain, dt);
 
-    // Let the event loop breathe between heavy solvers.
+    // Breathe after the (potentially Eigen LU) electronics solver.
     QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
 
     if (!motionDomain.bodies.isEmpty())
@@ -91,12 +95,23 @@ void SimulationLoop::tick()
     if (!m_waveDomain.sources.isEmpty())
         waveSolver.step(m_waveDomain, dt);
 
+    // Breathe again after the (potentially large grid) wave solver.
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
+
     emit tickComplete(simulationTime);
 
-    // Reschedule the next tick. Using 0 ms fires as soon as the event loop
-    // is idle, which gives Qt time to process any queued UI events first.
-    // The effective simulation rate is limited by solver wall-clock time,
-    // which is the correct behaviour for a real-time physics app.
-    if (running)
-        m_timer.start(0);
+    if (!running)
+        return;
+
+    // ── True 60 FPS pacing ──────────────────────────────────────────────────
+    // Measure how long the solvers actually took. If they finished in < 16 ms
+    // we wait the remainder so the event loop gets real idle time and the CPU
+    // is not pegged at 100 %.  If they took > 16 ms we reschedule immediately
+    // (0 ms) to catch up — the simulation will run slightly behind real-time
+    // but the UI will still be responsive because control returns to the event
+    // loop before every tick.
+    const qint64 elapsed = m_frameTimer.elapsed();
+    m_frameTimer.restart();
+    const int nextDelay = static_cast<int>(qMax(0LL, 16LL - elapsed));
+    m_timer.start(nextDelay);
 }

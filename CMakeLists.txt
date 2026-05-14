@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(PhysicsSimulationStudio
-    VERSION 1.0.0
+    VERSION 1.0.3
     DESCRIPTION "Educational multi-domain physics simulation studio"
     HOMEPAGE_URL "https://github.com/physicsstudio/app"
     LANGUAGES CXX
@@ -264,6 +264,14 @@ endif()
 # macOS app bundle properties.
 if(APPLE)
     set_target_properties(PhysicsSimulationStudio PROPERTIES
+        # Set install rpath to the bundle-relative Frameworks directory.
+        # macdeployqt copies Qt frameworks here and rewrites all library
+        # references to use @rpath/... notation.  By setting this at build
+        # time the binary never carries the Qt install-directory rpath, so
+        # CPack's post-install BundleUtilities fixup finds nothing to delete
+        # and the "no LC_RPATH load command" error is avoided.
+        INSTALL_RPATH              "@executable_path/../Frameworks"
+        BUILD_WITH_INSTALL_RPATH   FALSE
         MACOSX_BUNDLE                 TRUE
         MACOSX_BUNDLE_BUNDLE_NAME     "Physics Simulation Studio"
         MACOSX_BUNDLE_BUNDLE_VERSION  "${PROJECT_VERSION}"

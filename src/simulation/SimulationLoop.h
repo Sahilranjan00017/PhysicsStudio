@@ -5,6 +5,7 @@
 #include "simulation/optics/OpticalSolver.h"
 #include "simulation/wave/WaveSolver.h"
 
+#include <QElapsedTimer>
 #include <QObject>
 #include <QTimer>
 
@@ -50,7 +51,8 @@ private slots:
     void tick();
 
 private:
-    QTimer  m_timer;
+    QTimer        m_timer;
+    QElapsedTimer m_frameTimer;     // measures actual wall-clock time per tick
     bool    running        = false;
     double  speed          = 1.0;
     double  simulationTime = 0.0;

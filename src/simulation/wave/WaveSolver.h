@@ -29,9 +29,9 @@ struct WaveDomain {
     QList<BaseComponent*> planeSources; // WAV_PLANE   (line-array source)
 
     std::vector<float> field;           // amplitude grid, row-major, size cols×rows
-    int    cols      = 200;             // grid width  (scene width  / gridSize)
-    int    rows      = 134;             // grid height (scene height / gridSize)
-    double gridSize  = 12.0;            // pixels per grid cell
+    int    cols      = 120;             // grid width  (scene width  / gridSize)
+    int    rows      = 80;              // grid height (scene height / gridSize)
+    double gridSize  = 20.0;            // pixels per grid cell — 120×80×20 = 2400×1600 exactly
     double simTime   = 0.0;             // accumulated time (seconds)
     double waveSpeed = 200.0;           // px / s — governs wavelength λ = v/f
 };

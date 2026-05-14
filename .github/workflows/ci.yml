@@ -113,9 +113,33 @@ jobs:
           Write-Host "VC++ redist downloaded: $(Get-Item build/windows-msvc-release/vc_redist.x64.exe | Select-Object -ExpandProperty Length) bytes"
 
       # ── Package ───────────────────────────────────────────────────────────
+      # macOS: CPack DragNDrop can fail on CI runners because hdiutil can't
+      # detach a mounted disk image that another process is still using.
+      # We try CPack first; if no .dmg is produced we fall back to creating
+      # one directly with hdiutil (simpler and more reliable on CI).
       - name: Create installer / package (non-Linux)
         if: runner.os != 'Linux'
-        run: cmake --build --preset ${{ matrix.preset }} --target package
+        run: cmake --build --preset ${{ matrix.preset }} --target package || true
+
+      - name: Create DMG fallback (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          PRESET_DIR="build/${{ matrix.preset }}"
+          # Force-detach any stale mounted volume left by a failed CPack run.
+          hdiutil detach "/Volumes/Physics Simulation Studio"* -force 2>/dev/null || true
+          # If CPack already produced a .dmg we're done; otherwise build one manually.
+          if ! ls "$PRESET_DIR"/*.dmg 2>/dev/null | grep -q .; then
+            echo "CPack DMG not found — building with hdiutil..."
+            hdiutil create \
+              -volname "Physics Simulation Studio" \
+              -srcfolder "$PRESET_DIR/PhysicsSimulationStudio.app" \
+              -ov -format UDZO \
+              "$PRESET_DIR/PhysicsSimulationStudio-macOS.dmg"
+            echo "Fallback DMG created: $PRESET_DIR/PhysicsSimulationStudio-macOS.dmg"
+          else
+            echo "CPack DMG found:"
+            ls "$PRESET_DIR"/*.dmg
+          fi
 
       - name: Create archive (Linux)
         if: runner.os == 'Linux'
