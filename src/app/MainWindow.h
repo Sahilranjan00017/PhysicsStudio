@@ -52,7 +52,8 @@ private:
     UndoRedoStack*    undoRedoStack    = nullptr;
     DataLogger*       dataLogger       = nullptr;
     GraphPanel*       graphPanel       = nullptr;
-    QTimer            m_renderTimer;          // 30 FPS render — decoupled from physics
+    QTimer            m_renderTimer;           // 30 FPS repaint — decoupled from physics
+    QTimer            m_refreshTimer;          // debounce for scene-changed → domain rebuild
     QString           currentProjectPath;
     bool              m_dirty          = false;
 };

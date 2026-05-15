@@ -95,13 +95,28 @@ MainWindow::MainWindow(QWidget* parent)
         updateWindowTitle();
     });
 
-    // Rebuild domains whenever the scene changes structurally.
-    // Guard: skip while the simulation is running — the motion solver moves items
-    // each tick, which would trigger changed() and reset physics state.
+    // ── Scene-change → domain rebuild (debounced) ───────────────────────────
+    // QGraphicsScene::changed() is emitted whenever *any* item calls update(),
+    // including the overlay items driven by m_renderTimer at 30 FPS.
+    // Connecting directly to refreshSimulationDomain() would therefore call
+    // it 30× per second on every idle frame — burning the UI thread for no
+    // reason and causing "Not Responding" on slower Windows hardware.
+    //
+    // Fix: m_refreshTimer is a one-shot timer set to 150 ms. changed() restarts
+    // it each time it fires; refreshSimulationDomain() only executes after the
+    // scene has been *quiet* for 150 ms, collapsing any burst of rapid updates
+    // (drag-move, property change) into a single rebuild.
+    m_refreshTimer.setSingleShot(true);
+    m_refreshTimer.setInterval(150);
+    connect(&m_refreshTimer, &QTimer::timeout, this, [this]() {
+        if (!simulationLoop->isRunning())
+            refreshSimulationDomain();
+    });
+
     connect(canvasView->graphicsScene(), &QGraphicsScene::changed,
             this, [this](const QList<QRectF>&) {
                 if (!simulationLoop->isRunning()) {
-                    refreshSimulationDomain();
+                    m_refreshTimer.start();   // restarts the 150 ms countdown
                     m_dirty = true;
                     updateWindowTitle();
                 }
@@ -116,15 +131,25 @@ MainWindow::MainWindow(QWidget* parent)
                 statusBar()->showMessage(QString("t = %1 s").arg(simTime, 0, 'f', 2));
             });
 
-    // Independent 30 FPS render timer — repaints overlays and canvas.
-    // Running always (not just during simulation) so the canvas is responsive
-    // while paused too (e.g. dragging components shows live optics preview).
+    // ── Independent 30 FPS render timer ─────────────────────────────────────
+    // Drives overlay repaints at 30 FPS decoupled from the physics tick rate.
+    // Only the overlays (optics rays, wave field) need continuous repainting
+    // while the simulation is running. The canvas viewport itself is repainted
+    // by Qt automatically whenever scene items change (e.g. components moving),
+    // so we do NOT call viewport()->update() unconditionally here — that would
+    // force a full-scene repaint 30× per second even on a static paused canvas,
+    // keeping the UI thread busy for no visual gain.
     m_renderTimer.setInterval(33);   // ~30 FPS
     m_renderTimer.setTimerType(Qt::CoarseTimer);
     connect(&m_renderTimer, &QTimer::timeout, this, [this]() {
-        if (opticsOverlay)    opticsOverlay->update();
-        if (waveFieldOverlay) waveFieldOverlay->update();
-        canvasView->viewport()->update();
+        if (simulationLoop->isRunning()) {
+            // Only force overlay repaints while the simulation is live.
+            if (opticsOverlay)    opticsOverlay->update();
+            if (waveFieldOverlay) waveFieldOverlay->update();
+            // The canvas items (balls, blocks, etc.) call setPos() each tick
+            // which automatically triggers QGraphicsView to repaint — no
+            // extra viewport()->update() needed here.
+        }
     });
     m_renderTimer.start();
 }

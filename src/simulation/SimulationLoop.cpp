@@ -83,19 +83,26 @@ void SimulationLoop::tick()
     if (!electronicsDomain.components.isEmpty())
         electronicsSolver.solve(electronicsDomain, dt);
 
-    // Breathe after the (potentially Eigen LU) electronics solver.
+    // Breathe after each solver so the Qt event loop can process any pending
+    // paint / resize / signal events. ExcludeUserInputEvents means we flush
+    // repaints and queued signals without processing mouse / key events, which
+    // prevents re-entrant simulation ticks. The 2 ms cap ensures we never
+    // spend more than 2 ms in processEvents per call even if there is a backlog.
     QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
 
     if (!motionDomain.bodies.isEmpty())
         motionSolver.step(motionDomain, dt);
 
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
+
     if (!opticalDomain.components.isEmpty())
         opticalSolver.trace(opticalDomain);
+
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
 
     if (!m_waveDomain.sources.isEmpty())
         waveSolver.step(m_waveDomain, dt);
 
-    // Breathe again after the (potentially large grid) wave solver.
     QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
 
     emit tickComplete(simulationTime);
