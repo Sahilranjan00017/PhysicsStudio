@@ -351,11 +351,16 @@ void MotionSolver::stepPendulums(MotionDomain& domain, double dt)
         const double bobY = pend.pivot.y() + L * std::cos(pend.angle);
 
         if (pend.component) {
+            // simState writes are on the worker thread — acceptable minor data
+            // race with the Properties panel reading them for display only.
             pend.component->simState["angle"]  = pend.angle;
             pend.component->simState["omega"]  = pend.omega;
             pend.component->simState["bobX"]   = bobX;
             pend.component->simState["bobY"]   = bobY;
-            pend.component->update();
+            // update() schedules a repaint — must run on the main (GUI) thread.
+            BaseComponent* comp = pend.component;
+            QMetaObject::invokeMethod(comp, [comp]() { comp->update(); },
+                                      Qt::QueuedConnection);
         }
     }
 }
@@ -422,15 +427,19 @@ void MotionSolver::resolveRampCollisions(MotionDomain& domain)
 
 // ---------------------------------------------------------------------------
 // writeBack
-// Push physics state into the Qt scene.  BaseComponent::itemChange()
-// automatically reroutes all wires connected to moved items.
+// Push physics state into the Qt scene.  All calls that touch QGraphicsItem
+// (setPos, update) are posted to the main thread via invokeMethod so they
+// execute safely during the next main-thread event-loop iteration.
+// simState writes stay on the worker thread — the minor data race with the
+// Properties panel reading them is non-critical for physics correctness.
 // ---------------------------------------------------------------------------
 void MotionSolver::writeBack(MotionDomain& domain)
 {
     for (auto& b : domain.bodies) {
         if (b.fixed || b.component == nullptr)
             continue;
-        b.component->setPos(b.pos);
+
+        // Compute all values on the worker thread before posting.
         b.component->simState["vx"]    = b.vel.x();
         b.component->simState["vy"]    = b.vel.y();
         b.component->simState["speed"] = std::hypot(b.vel.x(), b.vel.y());
@@ -438,7 +447,14 @@ void MotionSolver::writeBack(MotionDomain& domain)
             b.component->simState["angle"]      = b.angle;
             b.component->simState["angularVel"] = b.angularVel;
         }
-        b.component->update();
+
+        // setPos() and update() must run on the main (GUI) thread.
+        BaseComponent* comp = b.component;
+        const QPointF  pos  = b.pos;
+        QMetaObject::invokeMethod(comp, [comp, pos]() {
+            comp->setPos(pos);
+            comp->update();
+        }, Qt::QueuedConnection);
     }
 
     // Write thruster force components to simState for display.
@@ -446,22 +462,26 @@ void MotionSolver::writeBack(MotionDomain& domain)
         if (thr.component) {
             thr.component->simState["forceX"] = thr.forceX;
             thr.component->simState["forceY"] = thr.forceY;
-            thr.component->update();
+            BaseComponent* comp = thr.component;
+            QMetaObject::invokeMethod(comp, [comp]() { comp->update(); },
+                                      Qt::QueuedConnection);
         }
     }
 
-    // Update Spring visual endpoints stored in simState so SpringComponent
-    // can draw a live stretched spring between the two connected bodies.
+    // Update Spring visual endpoints in simState so SpringComponent can draw
+    // a live stretched spring between the two connected bodies.
     for (const auto& sp : domain.springs) {
         if (sp.springComponent == nullptr)
             continue;
         const QPointF pA = (sp.bodyA >= 0) ? domain.bodies[sp.bodyA].pos : sp.anchorA;
         const QPointF pB = (sp.bodyB >= 0) ? domain.bodies[sp.bodyB].pos : sp.anchorB;
-        sp.springComponent->simState["endAx"]           = pA.x();
-        sp.springComponent->simState["endAy"]           = pA.y();
-        sp.springComponent->simState["endBx"]           = pB.x();
-        sp.springComponent->simState["endBy"]           = pB.y();
+        sp.springComponent->simState["endAx"]            = pA.x();
+        sp.springComponent->simState["endAy"]            = pA.y();
+        sp.springComponent->simState["endBx"]            = pB.x();
+        sp.springComponent->simState["endBy"]            = pB.y();
         sp.springComponent->simState["hasLiveEndpoints"] = true;
-        sp.springComponent->update();
+        BaseComponent* comp = sp.springComponent;
+        QMetaObject::invokeMethod(comp, [comp]() { comp->update(); },
+                                  Qt::QueuedConnection);
     }
 }

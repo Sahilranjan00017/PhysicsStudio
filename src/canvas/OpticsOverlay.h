@@ -3,6 +3,7 @@
 #include "simulation/optics/OpticalSolver.h"
 
 #include <QGraphicsItem>
+#include <QList>
 #include <QRectF>
 
 class QPainter;
@@ -12,19 +13,21 @@ class QWidget;
 // ---------------------------------------------------------------------------
 // OpticsOverlay
 // A transparent QGraphicsItem that renders optical ray paths on top of all
-// other scene content.  It holds a pointer to the OpticalDomain::segments
-// list owned by SimulationLoop; the segments are refreshed each solver tick.
+// other scene content (z = 50).
 //
-// The item lives at scene position (0,0) with no transform, so local
-// coordinates equal scene coordinates — ray segment endpoints (which are
-// already in scene space) can be drawn directly.
+// Thread safety: the overlay owns its own segment buffer (m_segsBuf).
+// The simulation worker thread sends fresh segments via
+// SimulationLoop::opticsUpdated, which is connected to setSegments() via
+// Qt::QueuedConnection so the copy arrives on the main thread before paint()
+// can read it.  No locking is required.
 // ---------------------------------------------------------------------------
 class OpticsOverlay final : public QGraphicsItem {
 public:
-    // segments: reference to SimulationLoop's internal segment list.
-    // Must remain valid for the overlay's lifetime.
-    explicit OpticsOverlay(const QList<OpticalSegment>& segments,
-                           QGraphicsItem* parent = nullptr);
+    explicit OpticsOverlay(QGraphicsItem* parent = nullptr);
+
+    // Called on the main thread (via Qt::QueuedConnection) with the latest
+    // ray segments emitted by SimulationLoop after each optics-solver tick.
+    void setSegments(QList<OpticalSegment> segments);
 
     // QGraphicsItem interface.
     QRectF boundingRect() const override;
@@ -32,5 +35,5 @@ public:
                  QWidget* widget) override;
 
 private:
-    const QList<OpticalSegment>& m_segments;  // non-owning reference
+    QList<OpticalSegment> m_segsBuf;    // owned copy of the latest ray list
 };

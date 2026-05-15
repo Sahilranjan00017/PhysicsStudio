@@ -37,15 +37,20 @@ QColor wavelengthToColor(double nm, double intensity)
 // OpticsOverlay
 // ---------------------------------------------------------------------------
 
-OpticsOverlay::OpticsOverlay(const QList<OpticalSegment>& segments, QGraphicsItem* parent)
-    : QGraphicsItem(parent),
-      m_segments(segments)
+OpticsOverlay::OpticsOverlay(QGraphicsItem* parent)
+    : QGraphicsItem(parent)
 {
     // Non-interactive: rays should not be selectable or block mouse events.
     setFlag(QGraphicsItem::ItemIsSelectable,   false);
     setFlag(QGraphicsItem::ItemIsMovable,      false);
     setAcceptHoverEvents(false);
     setAcceptedMouseButtons(Qt::NoButton);
+}
+
+void OpticsOverlay::setSegments(QList<OpticalSegment> segments)
+{
+    m_segsBuf = std::move(segments);
+    update();   // schedule repaint on the main thread
 }
 
 QRectF OpticsOverlay::boundingRect() const
@@ -57,12 +62,12 @@ QRectF OpticsOverlay::boundingRect() const
 
 void OpticsOverlay::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
-    if (m_segments.isEmpty())
+    if (m_segsBuf.isEmpty())
         return;
 
     painter->setRenderHint(QPainter::Antialiasing, true);
 
-    for (const OpticalSegment& seg : m_segments) {
+    for (const OpticalSegment& seg : m_segsBuf) {
         const QColor color = wavelengthToColor(seg.wavelength, seg.intensity);
         painter->setPen(QPen(color, 1.8, Qt::SolidLine, Qt::RoundCap));
         painter->drawLine(seg.start, seg.end);

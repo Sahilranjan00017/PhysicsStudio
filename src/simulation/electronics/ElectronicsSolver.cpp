@@ -812,7 +812,9 @@ void ElectronicsSolver::solve(ElectronicsDomain& domain, double dt)
             }
         }
 
-        comp->update();
+        // update() schedules a repaint — must run on the main (GUI) thread.
+        QMetaObject::invokeMethod(comp, [comp]() { comp->update(); },
+                                  Qt::QueuedConnection);
         Q_UNUSED(dt)
     }
 }

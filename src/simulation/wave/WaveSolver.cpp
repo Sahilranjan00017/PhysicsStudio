@@ -111,7 +111,7 @@ void WaveSolver::step(WaveDomain& domain, double dt)
         }
 
         src->simState["simTime"] = static_cast<double>(t);
-        src->update();
+        QMetaObject::invokeMethod(src, [src]() { src->update(); }, Qt::QueuedConnection);
     }
 
     // ── Plane wave sources (WAV_PLANE) ────────────────────────────────────
@@ -134,7 +134,7 @@ void WaveSolver::step(WaveDomain& domain, double dt)
         }
 
         src->simState["simTime"] = static_cast<double>(t);
-        src->update();
+        QMetaObject::invokeMethod(src, [src]() { src->update(); }, Qt::QueuedConnection);
     }
 
     // ── Image sources for reflective walls (WAV_WALL) ─────────────────────
@@ -206,7 +206,7 @@ void WaveSolver::step(WaveDomain& domain, double dt)
         }
 
         wall->simState["simTime"] = static_cast<double>(t);
-        wall->update();
+        QMetaObject::invokeMethod(wall, [wall]() { wall->update(); }, Qt::QueuedConnection);
     }
 
     // ── Huygens secondary sources at barrier slits ────────────────────────
@@ -259,7 +259,7 @@ void WaveSolver::step(WaveDomain& domain, double dt)
         }
 
         barrier->simState["simTime"] = static_cast<double>(t);
-        barrier->update();
+        QMetaObject::invokeMethod(barrier, [barrier]() { barrier->update(); }, Qt::QueuedConnection);
     }
 
     // ── Absorber regions (WAV_ABSORBER) ───────────────────────────────────
@@ -294,6 +294,6 @@ void WaveSolver::step(WaveDomain& domain, double dt)
         const int ix = std::clamp(static_cast<int>(static_cast<float>(det->pos().x()) / gs), 0, cols - 1);
         const int iy = std::clamp(static_cast<int>(static_cast<float>(det->pos().y()) / gs), 0, rows - 1);
         det->simState["amplitude"] = static_cast<double>(domain.field[iy * cols + ix]);
-        det->update();
+        QMetaObject::invokeMethod(det, [det]() { det->update(); }, Qt::QueuedConnection);
     }
 }

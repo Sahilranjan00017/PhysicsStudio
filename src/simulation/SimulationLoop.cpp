@@ -1,15 +1,14 @@
 #include "simulation/SimulationLoop.h"
 
-#include <QCoreApplication>
 #include <algorithm>
 
 SimulationLoop::SimulationLoop(QObject* parent)
     : QObject(parent)
 {
     // Use a single-shot self-rescheduling pattern instead of a repeating timer.
-    // This guarantees the Qt event loop always processes pending events (user
-    // input, repaints, signals) between every simulation tick, which prevents
-    // the "Not Responding" freeze on Windows when a solver takes too long.
+    // This guarantees the Qt event loop always processes pending events (domain
+    // setter calls, pause requests, etc.) between every simulation tick, which
+    // allows the main thread to stay completely free of physics work.
     m_timer.setSingleShot(true);
     connect(&m_timer, &QTimer::timeout, this, &SimulationLoop::tick);
 }
@@ -62,8 +61,10 @@ void SimulationLoop::setWaveDomain(WaveDomain domain)
 
 void SimulationLoop::traceOpticsOnce()
 {
-    if (!opticalDomain.components.isEmpty())
+    if (!opticalDomain.components.isEmpty()) {
         opticalSolver.trace(opticalDomain);
+        emit opticsUpdated(opticalDomain.segments);
+    }
 }
 
 void SimulationLoop::tick()
@@ -75,35 +76,33 @@ void SimulationLoop::tick()
     simulationTime += dt;
 
     // ── Run solvers ─────────────────────────────────────────────────────────
-    // After each heavy solver we call processEvents(ExcludeUserInputEvents)
-    // so the Qt event loop can flush pending paint / signal events without
-    // processing new mouse/key input. This prevents "Not Responding" on
-    // Windows even when a single solver tick takes > 16 ms.
+    // Each solver runs entirely on this worker thread.  UI updates (setPos,
+    // item::update, etc.) are posted back to the main thread via
+    // QMetaObject::invokeMethod(comp, lambda, Qt::QueuedConnection) inside
+    // each solver, so the main thread is never blocked by physics work.
 
     if (!electronicsDomain.components.isEmpty())
         electronicsSolver.solve(electronicsDomain, dt);
 
-    // Breathe after each solver so the Qt event loop can process any pending
-    // paint / resize / signal events. ExcludeUserInputEvents means we flush
-    // repaints and queued signals without processing mouse / key events, which
-    // prevents re-entrant simulation ticks. The 2 ms cap ensures we never
-    // spend more than 2 ms in processEvents per call even if there is a backlog.
-    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
-
     if (!motionDomain.bodies.isEmpty())
         motionSolver.step(motionDomain, dt);
 
-    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
-
-    if (!opticalDomain.components.isEmpty())
+    if (!opticalDomain.components.isEmpty()) {
         opticalSolver.trace(opticalDomain);
+        // Send a copy of the ray list to the overlay on the main thread.
+        emit opticsUpdated(opticalDomain.segments);
+    }
 
-    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
-
-    if (!m_waveDomain.sources.isEmpty())
+    const bool hasWaveSources = !m_waveDomain.sources.isEmpty()
+                             || !m_waveDomain.planeSources.isEmpty();
+    if (hasWaveSources) {
         waveSolver.step(m_waveDomain, dt);
-
-    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 2 /*ms*/);
+        // Send a copy of the field buffer to the overlay on the main thread.
+        emit waveFieldUpdated(m_waveDomain.field,
+                              m_waveDomain.cols,
+                              m_waveDomain.rows,
+                              m_waveDomain.gridSize);
+    }
 
     emit tickComplete(simulationTime);
 
@@ -116,7 +115,8 @@ void SimulationLoop::tick()
     // is not pegged at 100 %.  If they took > 16 ms we reschedule immediately
     // (0 ms) to catch up — the simulation will run slightly behind real-time
     // but the UI will still be responsive because control returns to the event
-    // loop before every tick.
+    // loop before every tick, allowing queued domain setters and pause
+    // requests to be processed promptly.
     const qint64 elapsed = m_frameTimer.elapsed();
     m_frameTimer.restart();
     const int nextDelay = static_cast<int>(qMax(0LL, 16LL - elapsed));

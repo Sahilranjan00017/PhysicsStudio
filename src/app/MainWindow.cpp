@@ -23,6 +23,7 @@
 
 #include <QAction>
 #include <QCloseEvent>
+#include <QMetaObject>
 #include <QComboBox>
 #include <QDockWidget>
 #include <QFile>
@@ -48,7 +49,7 @@ MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
       canvasView(new CanvasView(this)),
       propertiesPanel(new PropertiesPanel(this)),
-      simulationLoop(new SimulationLoop(this)),
+      simulationLoop(new SimulationLoop()),   // no parent — required before moveToThread
       undoRedoStack(new UndoRedoStack(this)),
       dataLogger(new DataLogger(this))
 {
@@ -67,20 +68,50 @@ MainWindow::MainWindow(QWidget* parent)
     statusBar()->showMessage("Ready");
     updateWindowTitle();
 
+    // ── Simulation worker thread ─────────────────────────────────────────────
+    // Moving SimulationLoop to its own QThread means all physics computation
+    // (MNA, Euler integration, ray tracing, wave superposition) runs completely
+    // off the main thread.  The UI thread is free to handle user input and paint
+    // at full frame rate regardless of how heavy the current simulation is.
+    m_simThread = new QThread(this);
+    simulationLoop->moveToThread(m_simThread);
+    m_simThread->start();
+
     // Create the optics ray-path overlay (z=50) and wave field overlay (z=40).
-    opticsOverlay = new OpticsOverlay(simulationLoop->opticsSegments());
+    // These now own their data buffers; the simulation worker sends updates via
+    // signals so there is no shared state between threads.
+    opticsOverlay = new OpticsOverlay();
     opticsOverlay->setZValue(50.0);
     canvasView->graphicsScene()->addItem(opticsOverlay);
 
-    waveFieldOverlay = new WaveFieldOverlay(simulationLoop->waveDomain());
+    waveFieldOverlay = new WaveFieldOverlay();
     waveFieldOverlay->setZValue(40.0);
     canvasView->graphicsScene()->addItem(waveFieldOverlay);
 
+    // Wire simulation signals to overlay update slots.
+    // Qt::AutoConnection across threads → Qt::QueuedConnection automatically,
+    // so the lambda runs on the main thread even though the signal is emitted
+    // from the worker thread.
+    connect(simulationLoop, &SimulationLoop::waveFieldUpdated,
+            this, [this](std::vector<float> field, int cols, int rows, double gridSize) {
+                if (waveFieldOverlay)
+                    waveFieldOverlay->setField(std::move(field), cols, rows, gridSize);
+            });
+    connect(simulationLoop, &SimulationLoop::opticsUpdated,
+            this, [this](QList<OpticalSegment> segments) {
+                if (opticsOverlay)
+                    opticsOverlay->setSegments(std::move(segments));
+            });
+
     // Space-bar toggles play / pause.
+    // isRunning() is safe from any thread (std::atomic<bool>).
+    // pause/start must be queued to the worker thread via invokeMethod.
     auto* spacebar = new QShortcut(Qt::Key_Space, this);
     connect(spacebar, &QShortcut::activated, this, [this] {
-        if (simulationLoop->isRunning()) simulationLoop->pause();
-        else                             simulationLoop->start();
+        if (simulationLoop->isRunning())
+            QMetaObject::invokeMethod(simulationLoop, [this]() { simulationLoop->pause(); });
+        else
+            QMetaObject::invokeMethod(simulationLoop, [this]() { simulationLoop->start(); });
     });
 
     connect(canvasView, &CanvasView::componentPlaced, this, [this](const QString& typeId, const QPointF& position) {
@@ -154,7 +185,19 @@ MainWindow::MainWindow(QWidget* parent)
     m_renderTimer.start();
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    // Stop the simulation worker thread cleanly before Qt begins destroying
+    // child objects.  quit() posts a quit event to the worker event loop;
+    // wait() blocks until the thread exits.  After wait() returns, the worker
+    // thread is no longer accessing simulationLoop, so it is safe to delete.
+    if (m_simThread) {
+        m_simThread->quit();
+        m_simThread->wait();
+    }
+    delete simulationLoop;
+    simulationLoop = nullptr;
+}
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
@@ -271,7 +314,7 @@ void MainWindow::buildMenus()
     auto* playAction  = simulationMenu->addAction("Play",  simulationLoop, &SimulationLoop::start);
     auto* pauseAction = simulationMenu->addAction("Pause", simulationLoop, &SimulationLoop::pause);
     simulationMenu->addAction("Reset", this, [this] {
-        simulationLoop->reset();
+        QMetaObject::invokeMethod(simulationLoop, [this]() { simulationLoop->reset(); });
         dataLogger->clearData();
         statusBar()->showMessage("Simulation reset", 2000);
     });
@@ -343,7 +386,7 @@ void MainWindow::buildToolbar()
     toolbar->addAction("▶ Play",  simulationLoop, &SimulationLoop::start);
     toolbar->addAction("⏸ Pause", simulationLoop, &SimulationLoop::pause);
     toolbar->addAction("↺ Reset", this, [this] {
-        simulationLoop->reset();
+        QMetaObject::invokeMethod(simulationLoop, [this]() { simulationLoop->reset(); });
         dataLogger->clearData();
     });
     toolbar->addSeparator();
@@ -360,7 +403,10 @@ void MainWindow::buildToolbar()
     speedCombo->setToolTip("Simulation speed multiplier");
     connect(speedCombo, &QComboBox::currentIndexChanged,
             this, [this, speedCombo](int) {
-                simulationLoop->setSpeed(speedCombo->currentData().toDouble());
+                const double spd = speedCombo->currentData().toDouble();
+                QMetaObject::invokeMethod(simulationLoop, [this, spd]() {
+                    simulationLoop->setSpeed(spd);
+                });
             });
     toolbar->addWidget(speedCombo);
     toolbar->addSeparator();
@@ -430,9 +476,13 @@ void MainWindow::newModel()
         }
     }
 
+    // Ensure the simulation has fully stopped before touching the scene.
+    // BlockingQueuedConnection blocks the main thread until the worker
+    // processes the pause — at most one tick (~16 ms) of wait time.
+    QMetaObject::invokeMethod(simulationLoop, [this]() { simulationLoop->pause(); },
+                              Qt::BlockingQueuedConnection);
     canvasView->clearComponents();
     undoRedoStack->qtStack()->clear();
-    simulationLoop->pause();
     dataLogger->clearData();
     currentProjectPath.clear();
     propertiesPanel->setComponent(nullptr);
@@ -549,6 +599,10 @@ bool MainWindow::loadModelFrom(const QString& path)
         return false;
     }
 
+    // Pause before modifying the scene to avoid a race with the worker thread.
+    QMetaObject::invokeMethod(simulationLoop, [this]() { simulationLoop->pause(); },
+                              Qt::BlockingQueuedConnection);
+
     const ProjectDocument document = ProjectDocument::fromJson(json.object());
     canvasView->loadScene(document.components, document.wires);
     undoRedoStack->qtStack()->clear();
@@ -581,7 +635,12 @@ void MainWindow::refreshElectronicsDomain()
         }
     }
     domain.wires = canvasView->wires();
-    simulationLoop->setElectronicsDomain(std::move(domain));
+    // Post to worker thread — domain is moved into the lambda's closure so it
+    // remains valid until the worker processes the queued call.
+    QMetaObject::invokeMethod(simulationLoop,
+        [this, d = std::move(domain)]() mutable {
+            simulationLoop->setElectronicsDomain(std::move(d));
+        }, Qt::QueuedConnection);
 }
 
 void MainWindow::refreshMotionDomain()
@@ -784,7 +843,10 @@ void MainWindow::refreshMotionDomain()
         domain.thrusters.append(thr);
     }
 
-    simulationLoop->setMotionDomain(std::move(domain));
+    QMetaObject::invokeMethod(simulationLoop,
+        [this, d = std::move(domain)]() mutable {
+            simulationLoop->setMotionDomain(std::move(d));
+        }, Qt::QueuedConnection);
 }
 
 void MainWindow::refreshOpticsDomain()
@@ -798,12 +860,14 @@ void MainWindow::refreshOpticsDomain()
          || t == "OPT_SPLITTER"|| t == "OPT_POLARISER")
             domain.components << comp;
     }
-    simulationLoop->setOpticalDomain(std::move(domain));
-
-    // Run a static trace immediately so rays are visible even when paused.
-    simulationLoop->traceOpticsOnce();
-    if (opticsOverlay)
-        opticsOverlay->update();
+    // Post domain setter + static trace as a single queued call so they
+    // execute atomically in order on the worker thread.  traceOpticsOnce()
+    // emits opticsUpdated → overlay updates on the main thread automatically.
+    QMetaObject::invokeMethod(simulationLoop,
+        [this, d = std::move(domain)]() mutable {
+            simulationLoop->setOpticalDomain(std::move(d));
+            simulationLoop->traceOpticsOnce();
+        }, Qt::QueuedConnection);
 }
 
 void MainWindow::refreshWaveDomain()
@@ -826,15 +890,19 @@ void MainWindow::refreshWaveDomain()
             domain.planeSources << comp;
     }
 
-    // Clear detector readings when domain is rebuilt.
+    // Clear detector readings on the main thread (sim is paused — safe).
     for (auto* comp : domain.detectors) {
         comp->simState.remove("amplitude");
         comp->update();
     }
 
-    simulationLoop->setWaveDomain(std::move(domain));
-    if (waveFieldOverlay)
-        waveFieldOverlay->update();
+    // Post domain setter to worker thread (domain is moved into closure).
+    QMetaObject::invokeMethod(simulationLoop,
+        [this, d = std::move(domain)]() mutable {
+            simulationLoop->setWaveDomain(std::move(d));
+        }, Qt::QueuedConnection);
+    // Wave field overlay will be cleared / updated on the next tick once the
+    // simulation resumes and emits waveFieldUpdated.
 }
 
 void MainWindow::openExample(const QString& resourcePath)
@@ -852,7 +920,8 @@ void MainWindow::openExample(const QString& resourcePath)
         return;
     }
 
-    simulationLoop->pause();
+    QMetaObject::invokeMethod(simulationLoop, [this]() { simulationLoop->pause(); },
+                              Qt::BlockingQueuedConnection);
     dataLogger->clearData();
 
     const ProjectDocument doc = ProjectDocument::fromJson(json.object());

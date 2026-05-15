@@ -2,6 +2,7 @@
 
 #include <QMainWindow>
 #include <QString>
+#include <QThread>
 #include <QTimer>
 
 class CanvasView;
@@ -52,6 +53,7 @@ private:
     UndoRedoStack*    undoRedoStack    = nullptr;
     DataLogger*       dataLogger       = nullptr;
     GraphPanel*       graphPanel       = nullptr;
+    QThread*          m_simThread       = nullptr; // owns the simulation worker thread
     QTimer            m_renderTimer;           // 30 FPS repaint — decoupled from physics
     QTimer            m_refreshTimer;          // debounce for scene-changed → domain rebuild
     QString           currentProjectPath;

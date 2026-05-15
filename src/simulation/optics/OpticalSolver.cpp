@@ -57,7 +57,8 @@ void OpticalSolver::trace(OpticalDomain& domain)
     for (auto* comp : domain.components) {
         if (comp->typeId == "OPT_SCREEN") {
             comp->simState["hitCount"] = 0;
-            comp->update();
+            QMetaObject::invokeMethod(comp, [comp]() { comp->update(); },
+                                      Qt::QueuedConnection);
         }
     }
 
@@ -522,5 +523,6 @@ void OpticalSolver::recordScreenHit(BaseComponent* screen, const QPointF& hitPt)
     screen->simState[QString("hit%1x").arg(count)] = hitPt.x();
     screen->simState[QString("hit%1y").arg(count)] = hitPt.y();
     screen->simState["hitCount"] = count + 1;
-    screen->update();
+    QMetaObject::invokeMethod(screen, [screen]() { screen->update(); },
+                              Qt::QueuedConnection);
 }
