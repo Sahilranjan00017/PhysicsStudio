@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(PhysicsSimulationStudio
-    VERSION 1.0.7
+    VERSION 1.0.8
     DESCRIPTION "Educational multi-domain physics simulation studio"
     HOMEPAGE_URL "https://github.com/physicsstudio/app"
     LANGUAGES CXX

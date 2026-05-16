@@ -45,6 +45,7 @@
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QString>
+#include <QTimer>
 #include <QToolBar>
 
 MainWindow::MainWindow(QWidget* parent)
@@ -115,6 +116,22 @@ MainWindow::MainWindow(QWidget* parent)
         else
             QMetaObject::invokeMethod(simulationLoop, [this]() { simulationLoop->start(); });
     });
+
+    // Double-clicking a component selects it AND raises the Properties dock
+    // so the user can edit its values immediately — like Crocodile Physics.
+    connect(canvasView, &CanvasView::componentDoubleClicked,
+            this, [this](BaseComponent* comp) {
+                propertiesPanel->setComponent(comp);
+                // Find the Properties dock and bring it to the front.
+                const QList<QDockWidget*> docks = findChildren<QDockWidget*>();
+                for (QDockWidget* dock : docks) {
+                    if (dock->widget() == propertiesPanel) {
+                        dock->raise();
+                        dock->show();
+                        break;
+                    }
+                }
+            });
 
     connect(canvasView, &CanvasView::componentPlaced, this, [this](const QString& typeId, const QPointF& position) {
         statusBar()->showMessage(
@@ -983,5 +1000,14 @@ void MainWindow::openExample(const QString& resourcePath)
     refreshSimulationDomain();
     m_dirty = false;      // opening an example is not a "dirty" change
     updateWindowTitle();
-    statusBar()->showMessage("Example loaded — press Play to start", 4000);
+
+    // Fit all components into view so the practical fills the canvas nicely.
+    // Use a singleShot(0) so Qt finishes laying out the new scene items first.
+    QTimer::singleShot(0, this, &MainWindow::fitView);
+
+    // Extract a friendly name from the resource path for the status bar.
+    const QString name = QFileInfo(resourcePath).completeBaseName()
+                             .replace('_', ' ');
+    statusBar()->showMessage(
+        QString("Opened: %1  —  press ▶ Play or Space to start").arg(name), 5000);
 }

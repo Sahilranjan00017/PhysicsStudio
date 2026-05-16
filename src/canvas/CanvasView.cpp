@@ -302,6 +302,22 @@ void CanvasView::keyPressEvent(QKeyEvent* event)
     QGraphicsView::keyPressEvent(event);
 }
 
+void CanvasView::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton) {
+        // If the user double-clicks a component, raise the Properties panel
+        // and show that component's properties — same UX as Crocodile Physics.
+        QGraphicsItem* item = itemAt(event->pos());
+        if (auto* comp = dynamic_cast<BaseComponent*>(item)) {
+            comp->setSelected(true);
+            emit componentDoubleClicked(comp);
+            event->accept();
+            return;
+        }
+    }
+    QGraphicsView::mouseDoubleClickEvent(event);
+}
+
 void CanvasView::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton) {

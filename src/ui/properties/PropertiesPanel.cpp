@@ -81,7 +81,10 @@ void PropertiesPanel::rebuildForm()
         return;
     }
 
-    titleLabel->setText(QString("%1\n%2").arg(selectedComponent->displayName, selectedComponent->typeId));
+    titleLabel->setText(QString("<b>%1</b><br/><small style='color:#666'>%2</small>")
+                            .arg(selectedComponent->displayName.toHtmlEscaped(),
+                                 selectedComponent->typeId.toHtmlEscaped()));
+    titleLabel->setTextFormat(Qt::RichText);
 
     for (auto it = selectedComponent->properties.cbegin(); it != selectedComponent->properties.cend(); ++it) {
         const QString key = it.key();

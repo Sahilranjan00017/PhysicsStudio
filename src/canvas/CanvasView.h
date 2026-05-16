@@ -40,6 +40,7 @@ public:
 
 signals:
     void componentPlaced(QString typeId, QPointF position);
+    void componentDoubleClicked(BaseComponent* component);
 
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
@@ -47,6 +48,7 @@ protected:
     void dropEvent(QDropEvent* event) override;
     void drawBackground(QPainter* painter, const QRectF& rect) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;

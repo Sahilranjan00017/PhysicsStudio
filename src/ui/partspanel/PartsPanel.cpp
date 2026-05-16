@@ -1,12 +1,19 @@
 #include "ui/partspanel/PartsPanel.h"
 
+#include "components/BaseComponent.h"
 #include "components/ComponentMimeTypes.h"
 #include "components/ComponentRegistry.h"
 
+#include <cmath>
+
 #include <QAbstractItemView>
+#include <QGraphicsScene>
 #include <QHeaderView>
+#include <QIcon>
 #include <QLineEdit>
 #include <QMimeData>
+#include <QPainter>
+#include <QPixmap>
 #include <QStringList>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
@@ -73,18 +80,61 @@ void PartsPanel::filterParts(const QString& text)
     }
 }
 
+// ---------------------------------------------------------------------------
+// renderComponentIcon — creates a 48×48 icon by painting the component
+// into an off-screen QGraphicsScene.  Returns a null QPixmap if the
+// component can't be created.
+// ---------------------------------------------------------------------------
+static QIcon renderComponentIcon(const QString& typeId)
+{
+    constexpr int kSize = 48;
+
+    BaseComponent* comp = ComponentRegistry::instance().create(typeId);
+    if (!comp) return {};
+
+    // Place component at scene centre so boundingRect doesn't go negative.
+    comp->setPos(0, 0);
+
+    QGraphicsScene tmpScene;
+    tmpScene.addItem(comp);
+
+    // Use the component's own bounding rect, padded 20 %.
+    const QRectF br = comp->mapToScene(comp->boundingRect()).boundingRect();
+    const double pad = std::max(br.width(), br.height()) * 0.20;
+    const QRectF source = br.adjusted(-pad, -pad, pad, pad);
+
+    QPixmap pixmap(kSize, kSize);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    tmpScene.render(&painter, QRectF(0, 0, kSize, kSize), source);
+
+    // comp is owned by tmpScene; it will be deleted when tmpScene goes out of scope.
+    return QIcon(pixmap);
+}
+
 void PartsPanel::populate()
 {
     tree->clear();
+
+    // Show a larger icon + set icon size once.
+    tree->setIconSize(QSize(40, 40));
 
     const QList<ComponentDescriptor> descriptors = ComponentRegistry::instance().descriptors();
     for (const ComponentDescriptor& descriptor : descriptors) {
         QTreeWidgetItem* category = categoryItem(descriptor.categoryPath);
         auto* item = new QTreeWidgetItem(category);
         item->setText(0, descriptor.displayName);
-        item->setToolTip(0, descriptor.description);
+        item->setToolTip(0, descriptor.description.isEmpty()
+                            ? descriptor.typeId
+                            : descriptor.description);
         item->setData(0, typeIdRole, descriptor.typeId);
         item->setFlags((item->flags() | Qt::ItemIsDragEnabled) & ~Qt::ItemIsDropEnabled);
+
+        // Render the component's own paint() into a small icon.
+        const QIcon icon = renderComponentIcon(descriptor.typeId);
+        if (!icon.isNull())
+            item->setIcon(0, icon);
     }
 
     tree->expandAll();
