@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "source",
+            "typeId": "OPT_SRC",
+            "displayName": "Parallel Rays",
+            "position": { "x": 200, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "numRays": 7, "spread": 0.15, "wavelength": 580.0, "intensity": 1.0 }
+        },
+        {
+            "id": "concave_mirror",
+            "typeId": "OPT_CONCAVE",
+            "displayName": "Convex Mirror (negative f)",
+            "position": { "x": 800, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 180,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "focalLength": -200.0, "diameter": 200.0, "reflectivity": 0.95 }
+        },
+        {
+            "id": "screen",
+            "typeId": "OPT_SCREEN",
+            "displayName": "Screen",
+            "position": { "x": 400, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 300.0 }
+        }
+    ],
+    "wires": []
+}

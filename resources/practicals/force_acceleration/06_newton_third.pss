@@ -1,0 +1,42 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "ball1",
+            "typeId": "MOT_BALL",
+            "displayName": "Ball A",
+            "position": { "x": 950, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 30.0, "restitution": 0.8, "friction": 0.0, "airDrag": 0.0, "velocityX": 0.0, "velocityY": 0.0 }
+        },
+        {
+            "id": "ball2",
+            "typeId": "MOT_BALL",
+            "displayName": "Ball B",
+            "position": { "x": 1450, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 30.0, "restitution": 0.8, "friction": 0.0, "airDrag": 0.0, "velocityX": 0.0, "velocityY": 0.0 }
+        },
+        {
+            "id": "spring",
+            "typeId": "MOT_SPRING",
+            "displayName": "Spring",
+            "position": { "x": 1200, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "stiffness": 400.0, "restLength": 300.0, "damping": 0.0 }
+        }
+    ],
+    "wires": [
+        { "wireType": "signal", "startComponentId": "spring", "startPadId": "a", "endComponentId": "ball1", "endPadId": "attach" },
+        { "wireType": "signal", "startComponentId": "spring", "startPadId": "b", "endComponentId": "ball2", "endPadId": "attach" }
+    ]
+}

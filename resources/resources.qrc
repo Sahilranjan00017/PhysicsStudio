@@ -9,4 +9,78 @@
         <file>examples/waves_interference.pss</file>
         <file>examples/waves_ripple.pss</file>
     </qresource>
+
+    <qresource prefix="/practicals">
+        <!-- Chapter 1: Describing Motion (3) -->
+        <file>practicals/describing_motion/01_distance_time.pss</file>
+        <file>practicals/describing_motion/02_velocity_time.pss</file>
+        <file>practicals/describing_motion/03_acceleration.pss</file>
+
+        <!-- Chapter 2: Force & Acceleration (15) -->
+        <file>practicals/force_acceleration/01_circular_motion.pss</file>
+        <file>practicals/force_acceleration/02_circular_radius.pss</file>
+        <file>practicals/force_acceleration/03_circular_mass.pss</file>
+        <file>practicals/force_acceleration/04_newton_first.pss</file>
+        <file>practicals/force_acceleration/05_newton_second.pss</file>
+        <file>practicals/force_acceleration/06_newton_third.pss</file>
+        <file>practicals/force_acceleration/07_resultant_force.pss</file>
+        <file>practicals/force_acceleration/08_stopping_distance.pss</file>
+        <file>practicals/force_acceleration/09_traction.pss</file>
+        <file>practicals/force_acceleration/10_unequal_forces.pss</file>
+        <file>practicals/force_acceleration/11_weight.pss</file>
+        <file>practicals/force_acceleration/12_balanced_forces.pss</file>
+        <file>practicals/force_acceleration/13_defining_newton.pss</file>
+        <file>practicals/force_acceleration/14_friction.pss</file>
+        <file>practicals/force_acceleration/15_pendulum.pss</file>
+
+        <!-- Chapter 3: Energy & Motion (9) -->
+        <file>practicals/energy_motion/01_momentum_definition.pss</file>
+        <file>practicals/energy_motion/02_momentum_conservation.pss</file>
+        <file>practicals/energy_motion/03_momentum_change.pss</file>
+        <file>practicals/energy_motion/04_kinetic_energy.pss</file>
+        <file>practicals/energy_motion/05_changing_speed.pss</file>
+        <file>practicals/energy_motion/06_energy_change.pss</file>
+        <file>practicals/energy_motion/07_gravity_gpe.pss</file>
+        <file>practicals/energy_motion/08_collisions.pss</file>
+        <file>practicals/energy_motion/09_elastic_inelastic.pss</file>
+
+        <!-- Chapter 4: Circuits (8) -->
+        <file>practicals/circuits/01_basic_circuit.pss</file>
+        <file>practicals/circuits/02_current_voltage.pss</file>
+        <file>practicals/circuits/03_ldr_thermistor.pss</file>
+        <file>practicals/circuits/04_ohms_law.pss</file>
+        <file>practicals/circuits/05_parallel_circuit.pss</file>
+        <file>practicals/circuits/06_series_resistors.pss</file>
+        <file>practicals/circuits/07_series_lamps.pss</file>
+        <file>practicals/circuits/08_series_batteries.pss</file>
+
+        <!-- Chapter 5: Electrical Energy (7) -->
+        <file>practicals/electrical_energy/01_ac_dc.pss</file>
+        <file>practicals/electrical_energy/02_cost_energy.pss</file>
+        <file>practicals/electrical_energy/03_electric_power.pss</file>
+        <file>practicals/electrical_energy/04_fuse.pss</file>
+        <file>practicals/electrical_energy/05_high_power.pss</file>
+        <file>practicals/electrical_energy/06_low_power.pss</file>
+        <file>practicals/electrical_energy/07_transformer.pss</file>
+
+        <!-- Chapter 6: Waves (8) -->
+        <file>practicals/waves/01_absorption.pss</file>
+        <file>practicals/waves/02_diffraction.pss</file>
+        <file>practicals/waves/03_doppler_effect.pss</file>
+        <file>practicals/waves/04_interference.pss</file>
+        <file>practicals/waves/05_loudness_pitch.pss</file>
+        <file>practicals/waves/06_electromagnetic.pss</file>
+        <file>practicals/waves/07_speed_sound.pss</file>
+        <file>practicals/waves/08_ultrasound.pss</file>
+
+        <!-- Chapter 7: Optics (8) -->
+        <file>practicals/optics/01_angle_reflection.pss</file>
+        <file>practicals/optics/02_convex_mirror.pss</file>
+        <file>practicals/optics/03_mirror_reflection.pss</file>
+        <file>practicals/optics/04_camera_lens.pss</file>
+        <file>practicals/optics/05_magnifying_glass.pss</file>
+        <file>practicals/optics/06_magnification.pss</file>
+        <file>practicals/optics/07_mirror_applications.pss</file>
+        <file>practicals/optics/08_telescope.pss</file>
+    </qresource>
 </RCC>

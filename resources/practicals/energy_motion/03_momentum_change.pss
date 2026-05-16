@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "floor",
+            "typeId": "MOT_BLOCK",
+            "displayName": "Floor",
+            "position": { "x": 1200, "y": 1400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 0.0, "halfW": 1100.0, "halfH": 20.0, "fixed": true, "restitution": 0.5, "friction": 0.3 }
+        },
+        {
+            "id": "wall_right",
+            "typeId": "MOT_BLOCK",
+            "displayName": "Right Wall",
+            "position": { "x": 2100, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 0.0, "halfW": 20.0, "halfH": 600.0, "fixed": true, "restitution": 1.0, "friction": 0.0 }
+        },
+        {
+            "id": "ball",
+            "typeId": "MOT_BALL",
+            "displayName": "Ball (1 kg)",
+            "position": { "x": 700, "y": 1350 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 30.0, "restitution": 1.0, "friction": 0.0, "airDrag": 0.0, "velocityX": 200.0, "velocityY": 0.0 }
+        }
+    ],
+    "wires": []
+}

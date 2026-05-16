@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "pulse",
+            "typeId": "WAV_RIPPLE",
+            "displayName": "Ultrasound Pulse",
+            "position": { "x": 200, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 5.0, "amplitude": 1.2, "phase": 0.0, "numCycles": 3.0 }
+        },
+        {
+            "id": "wall",
+            "typeId": "WAV_WALL",
+            "displayName": "Tissue Boundary",
+            "position": { "x": 900, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 400.0, "reflectance": 0.7 }
+        },
+        {
+            "id": "transducer",
+            "typeId": "WAV_DET",
+            "displayName": "Transducer (receiver)",
+            "position": { "x": 200, "y": 600 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": []
+}

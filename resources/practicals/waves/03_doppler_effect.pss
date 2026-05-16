@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "source",
+            "typeId": "WAV_SRC",
+            "displayName": "Moving Source",
+            "position": { "x": 600, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 3.0, "amplitude": 1.0, "phase": 0.0 }
+        },
+        {
+            "id": "detector_front",
+            "typeId": "WAV_DET",
+            "displayName": "Detector (Ahead)",
+            "position": { "x": 900, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        },
+        {
+            "id": "detector_behind",
+            "typeId": "WAV_DET",
+            "displayName": "Detector (Behind)",
+            "position": { "x": 300, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": []
+}

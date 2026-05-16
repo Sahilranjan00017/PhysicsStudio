@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "object_source",
+            "typeId": "OPT_SRC",
+            "displayName": "Object (Light Source)",
+            "position": { "x": 200, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "numRays": 5, "spread": 0.3, "wavelength": 580.0, "intensity": 1.0 }
+        },
+        {
+            "id": "lens",
+            "typeId": "OPT_LENS",
+            "displayName": "Converging Lens (f=150mm)",
+            "position": { "x": 700, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "focalLength": 150.0, "diameter": 150.0 }
+        },
+        {
+            "id": "film",
+            "typeId": "OPT_SCREEN",
+            "displayName": "Film / Sensor",
+            "position": { "x": 1050, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 200.0 }
+        }
+    ],
+    "wires": []
+}

@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "src",
+            "typeId": "WAV_SRC",
+            "displayName": "Wave Source",
+            "position": { "x": 400, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 2.0, "amplitude": 1.0, "phase": 0.0 }
+        },
+        {
+            "id": "absorber",
+            "typeId": "WAV_ABSORBER",
+            "displayName": "Absorber",
+            "position": { "x": 1200, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "radius": 100.0, "damping": 0.95 }
+        },
+        {
+            "id": "detector",
+            "typeId": "WAV_DET",
+            "displayName": "Detector",
+            "position": { "x": 2000, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": []
+}

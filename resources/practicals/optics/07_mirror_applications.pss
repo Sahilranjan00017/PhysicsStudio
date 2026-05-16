@@ -1,0 +1,50 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "source",
+            "typeId": "OPT_SRC",
+            "displayName": "Parallel Beam",
+            "position": { "x": 200, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "numRays": 7, "spread": 0.12, "wavelength": 600.0, "intensity": 1.0 }
+        },
+        {
+            "id": "concave",
+            "typeId": "OPT_CONCAVE",
+            "displayName": "Concave Mirror (f=200mm)",
+            "position": { "x": 900, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 180,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "focalLength": 200.0, "diameter": 220.0, "reflectivity": 0.97 }
+        },
+        {
+            "id": "focal_screen",
+            "typeId": "OPT_SCREEN",
+            "displayName": "Screen at Focus",
+            "position": { "x": 700, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 250.0 }
+        },
+        {
+            "id": "splitter",
+            "typeId": "OPT_SPLITTER",
+            "displayName": "Beam Splitter",
+            "position": { "x": 550, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 45,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "splitRatio": 0.5, "length": 80.0 }
+        }
+    ],
+    "wires": []
+}

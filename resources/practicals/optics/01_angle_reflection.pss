@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "source",
+            "typeId": "OPT_SRC",
+            "displayName": "Light Source",
+            "position": { "x": 300, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 30,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "numRays": 5, "spread": 0.0, "wavelength": 580.0, "intensity": 1.0 }
+        },
+        {
+            "id": "mirror",
+            "typeId": "OPT_MIRROR",
+            "displayName": "Plane Mirror",
+            "position": { "x": 700, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 200.0, "reflectivity": 1.0 }
+        },
+        {
+            "id": "screen",
+            "typeId": "OPT_SCREEN",
+            "displayName": "Screen",
+            "position": { "x": 700, "y": 250 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 300.0 }
+        }
+    ],
+    "wires": []
+}

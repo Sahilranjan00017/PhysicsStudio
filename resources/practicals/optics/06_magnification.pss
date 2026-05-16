@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "object_far",
+            "typeId": "OPT_SRC",
+            "displayName": "Object (far, u=300mm)",
+            "position": { "x": 100, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "numRays": 5, "spread": 0.15, "wavelength": 580.0, "intensity": 1.0 }
+        },
+        {
+            "id": "lens",
+            "typeId": "OPT_LENS",
+            "displayName": "Converging Lens (f=200mm)",
+            "position": { "x": 700, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "focalLength": 200.0, "diameter": 180.0 }
+        },
+        {
+            "id": "screen",
+            "typeId": "OPT_SCREEN",
+            "displayName": "Image Screen",
+            "position": { "x": 1150, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 280.0 }
+        }
+    ],
+    "wires": []
+}

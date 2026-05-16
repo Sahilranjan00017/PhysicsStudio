@@ -1,0 +1,50 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "high_pitch",
+            "typeId": "WAV_SOUND",
+            "displayName": "High Pitch (440 Hz)",
+            "position": { "x": 400, "y": 350 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 5.0, "amplitude": 0.6, "phase": 0.0 }
+        },
+        {
+            "id": "low_pitch",
+            "typeId": "WAV_SOUND",
+            "displayName": "Low Pitch (110 Hz)",
+            "position": { "x": 400, "y": 650 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 1.5, "amplitude": 0.6, "phase": 0.0 }
+        },
+        {
+            "id": "loud_src",
+            "typeId": "WAV_SOUND",
+            "displayName": "Loud Sound",
+            "position": { "x": 800, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 3.0, "amplitude": 1.5, "phase": 0.0 }
+        },
+        {
+            "id": "detector",
+            "typeId": "WAV_DET",
+            "displayName": "Microphone",
+            "position": { "x": 1100, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": []
+}

@@ -1,0 +1,67 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "vsrc",
+            "typeId": "ELEC_VSRC",
+            "displayName": "Battery (12 V)",
+            "position": { "x": 600, "y": 550 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 12.0, "internalResistance": 1.0 }
+        },
+        {
+            "id": "fuse",
+            "typeId": "ELEC_FUSE",
+            "displayName": "Fuse (0.1 A)",
+            "position": { "x": 1000, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "maxCurrent": 0.1 }
+        },
+        {
+            "id": "res",
+            "typeId": "ELEC_RES",
+            "displayName": "Resistor (10 Ω)",
+            "position": { "x": 1400, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 10.0 }
+        },
+        {
+            "id": "amm",
+            "typeId": "ELEC_AMM",
+            "displayName": "Ammeter",
+            "position": { "x": 1800, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "range": 2.0, "burdenResistance": 0.1 }
+        },
+        {
+            "id": "gnd",
+            "typeId": "ELEC_GND",
+            "displayName": "Ground",
+            "position": { "x": 600, "y": 700 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": [
+        { "wireType": "signal", "startComponentId": "vsrc", "startPadId": "a", "endComponentId": "fuse", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "fuse", "startPadId": "b", "endComponentId": "res", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res", "startPadId": "b", "endComponentId": "amm", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "amm", "startPadId": "b", "endComponentId": "vsrc", "endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "gnd", "startPadId": "gnd", "endComponentId": "vsrc", "endPadId": "b" }
+    ]
+}

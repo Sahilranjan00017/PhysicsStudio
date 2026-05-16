@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(PhysicsSimulationStudio
-    VERSION 1.0.5
+    VERSION 1.0.6
     DESCRIPTION "Educational multi-domain physics simulation studio"
     HOMEPAGE_URL "https://github.com/physicsstudio/app"
     LANGUAGES CXX
@@ -132,6 +132,8 @@ add_executable(PhysicsSimulationStudio WIN32
     src/ui/graph/DataLogger.h
     src/ui/graph/GraphPanel.cpp
     src/ui/graph/GraphPanel.h
+    src/ui/contentspanel/ContentsPanel.cpp
+    src/ui/contentspanel/ContentsPanel.h
     src/ui/partspanel/PartsPanel.cpp
     src/ui/partspanel/PartsPanel.h
     src/ui/properties/PropertiesPanel.cpp

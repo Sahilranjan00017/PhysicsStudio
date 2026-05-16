@@ -1,0 +1,50 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "source1",
+            "typeId": "WAV_SRC",
+            "displayName": "Source 1",
+            "position": { "x": 600, "y": 380 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 2.5, "amplitude": 1.0, "phase": 0.0 }
+        },
+        {
+            "id": "source2",
+            "typeId": "WAV_SRC",
+            "displayName": "Source 2",
+            "position": { "x": 600, "y": 620 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 2.5, "amplitude": 1.0, "phase": 0.0 }
+        },
+        {
+            "id": "detector1",
+            "typeId": "WAV_DET",
+            "displayName": "Detector (Constructive)",
+            "position": { "x": 1000, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        },
+        {
+            "id": "detector2",
+            "typeId": "WAV_DET",
+            "displayName": "Detector (Destructive)",
+            "position": { "x": 1000, "y": 620 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": []
+}

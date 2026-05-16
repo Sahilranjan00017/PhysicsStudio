@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "object",
+            "typeId": "OPT_SRC",
+            "displayName": "Small Object",
+            "position": { "x": 400, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "numRays": 5, "spread": 0.1, "wavelength": 555.0, "intensity": 1.0 }
+        },
+        {
+            "id": "lens",
+            "typeId": "OPT_LENS",
+            "displayName": "Magnifying Glass (f=100mm)",
+            "position": { "x": 650, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "focalLength": 100.0, "diameter": 120.0 }
+        },
+        {
+            "id": "screen",
+            "typeId": "OPT_SCREEN",
+            "displayName": "Virtual Image Plane",
+            "position": { "x": 900, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 250.0 }
+        }
+    ],
+    "wires": []
+}

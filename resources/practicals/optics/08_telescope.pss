@@ -1,0 +1,50 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "stars",
+            "typeId": "OPT_SRC",
+            "displayName": "Distant Stars (parallel rays)",
+            "position": { "x": 50, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "numRays": 5, "spread": 0.05, "wavelength": 520.0, "intensity": 1.0 }
+        },
+        {
+            "id": "objective",
+            "typeId": "OPT_LENS",
+            "displayName": "Objective Lens (f=400mm)",
+            "position": { "x": 500, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "focalLength": 400.0, "diameter": 200.0 }
+        },
+        {
+            "id": "eyepiece",
+            "typeId": "OPT_LENS",
+            "displayName": "Eyepiece (f=50mm)",
+            "position": { "x": 1000, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "focalLength": 50.0, "diameter": 80.0 }
+        },
+        {
+            "id": "screen",
+            "typeId": "OPT_SCREEN",
+            "displayName": "Eye / CCD",
+            "position": { "x": 1100, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 150.0 }
+        }
+    ],
+    "wires": []
+}

@@ -14,6 +14,7 @@
 #include "simulation/motion/MotionSolver.h"
 #include "simulation/optics/OpticalSolver.h"
 #include "simulation/wave/WaveSolver.h"
+#include "ui/contentspanel/ContentsPanel.h"
 #include "ui/graph/DataLogger.h"
 #include "ui/graph/GraphPanel.h"
 #include "ui/partspanel/PartsPanel.h"
@@ -41,6 +42,7 @@
 #include <QPointF>
 #include <QRectF>
 #include <QShortcut>
+#include <QStandardPaths>
 #include <QStatusBar>
 #include <QString>
 #include <QToolBar>
@@ -326,7 +328,7 @@ void MainWindow::buildMenus()
     helpMenu->addAction("About Physics Studio", this, [this] {
         QMessageBox::about(this, "About Physics Studio",
             "<h3>Physics Simulation Studio</h3>"
-            "<p><b>Version 1.0.0</b></p>"
+            "<p><b>Version 1.0.6</b></p>"
             "<p>An educational multi-domain physics simulator.</p>"
             "<p>Supported domains &amp; components:</p>"
             "<ul>"
@@ -417,17 +419,51 @@ void MainWindow::buildToolbar()
 
 void MainWindow::buildDocks()
 {
+    // ── Contents panel (Crocodile Physics-style curriculum browser) ───────────
+    // Placed on the LEFT side above the Parts panel.  Double-clicking a
+    // practical opens it as if the user had used File → Open.
+    contentsPanel = new ContentsPanel(this);
+    auto* contentsDock = new QDockWidget("Contents", this);
+    contentsDock->setObjectName("contentsDock");
+    contentsDock->setWidget(contentsPanel);
+    contentsDock->setMinimumWidth(220);
+    addDockWidget(Qt::LeftDockWidgetArea, contentsDock);
+
+    // Built-in practicals are bundled as Qt resources — reuse openExample()
+    // which handles resource paths (:/practicals/...) correctly.
+    connect(contentsPanel, &ContentsPanel::builtinPracticalRequested,
+            this, &MainWindow::openExample);
+
+    // User-saved practicals live on disk — load via the normal path.
+    connect(contentsPanel, &ContentsPanel::userPracticalRequested,
+            this, [this](const QString& filePath) {
+                if (loadModelFrom(filePath)) {
+                    currentProjectPath = filePath;
+                    m_dirty = false;
+                    updateWindowTitle();
+                    statusBar()->showMessage(QString("Opened %1").arg(filePath), 3000);
+                }
+            });
+
+    // ── Parts panel ───────────────────────────────────────────────────────────
     auto* partsDock = new QDockWidget("Parts", this);
+    partsDock->setObjectName("partsDock");
     partsDock->setWidget(new PartsPanel(partsDock));
     addDockWidget(Qt::LeftDockWidgetArea, partsDock);
 
+    // Stack the two left docks: Contents on top, Parts below.
+    tabifyDockWidget(contentsDock, partsDock);
+    contentsDock->raise();   // show Contents tab first
+
     auto* propertiesDock = new QDockWidget("Properties", this);
+    propertiesDock->setObjectName("propertiesDock");
     propertiesDock->setWidget(propertiesPanel);
     addDockWidget(Qt::RightDockWidgetArea, propertiesDock);
 
     // Graph panel — docked at the bottom; shows live time-series data.
     graphPanel = new GraphPanel(dataLogger, this);
     auto* graphDock = new QDockWidget("Live Graph", this);
+    graphDock->setObjectName("graphDock");
     graphDock->setWidget(graphPanel);
     graphDock->setMinimumHeight(140);
     addDockWidget(Qt::BottomDockWidgetArea, graphDock);
@@ -531,10 +567,14 @@ void MainWindow::saveModel()
 {
     QString path = currentProjectPath;
     if (path.isEmpty()) {
+        // Default to My Content folder so the model appears in the Contents panel.
+        const QString defaultDir =
+            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
+            + "/PhysicsStudio/My Content/";
         path = QFileDialog::getSaveFileName(
             this,
             "Save Physics Simulation Studio Model",
-            QString(),
+            defaultDir,
             "Physics Simulation Studio (*.pss);;JSON (*.json)");
     }
 
@@ -547,15 +587,24 @@ void MainWindow::saveModel()
         m_dirty = false;
         updateWindowTitle();
         statusBar()->showMessage(QString("Saved %1").arg(path), 3000);
+        // If saved into the My Content folder the watcher picks it up, but
+        // call refreshMyContent() explicitly for saves elsewhere too.
+        if (contentsPanel) contentsPanel->refreshMyContent();
     }
 }
 
 void MainWindow::saveModelAsDialog()
 {
+    // Default to the My Content folder so saves appear in the Contents panel.
+    const QString defaultPath = currentProjectPath.isEmpty()
+        ? (QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
+           + "/PhysicsStudio/My Content/")
+        : currentProjectPath;
+
     const QString path = QFileDialog::getSaveFileName(
         this,
         "Save Physics Simulation Studio Model As",
-        currentProjectPath,
+        defaultPath,
         "Physics Simulation Studio (*.pss);;JSON (*.json)");
 
     if (path.isEmpty())
@@ -566,6 +615,7 @@ void MainWindow::saveModelAsDialog()
         m_dirty = false;
         updateWindowTitle();
         statusBar()->showMessage(QString("Saved %1").arg(path), 3000);
+        if (contentsPanel) contentsPanel->refreshMyContent();
     }
 }
 

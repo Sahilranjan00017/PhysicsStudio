@@ -1,0 +1,42 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "anchor",
+            "typeId": "MOT_ANCHOR",
+            "displayName": "Anchor",
+            "position": { "x": 1200, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        },
+        {
+            "id": "ball",
+            "typeId": "MOT_BALL",
+            "displayName": "Orbiting Ball",
+            "position": { "x": 1200, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 25.0, "restitution": 0.5, "friction": 0.0, "airDrag": 0.0, "velocityX": 200.0, "velocityY": 0.0 }
+        },
+        {
+            "id": "rope",
+            "typeId": "MOT_ROPE",
+            "displayName": "Rope",
+            "position": { "x": 1200, "y": 650 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "stiffness": 2000.0, "length": 300.0, "damping": 0.0 }
+        }
+    ],
+    "wires": [
+        { "wireType": "signal", "startComponentId": "rope", "startPadId": "a", "endComponentId": "anchor", "endPadId": "attach" },
+        { "wireType": "signal", "startComponentId": "rope", "startPadId": "b", "endComponentId": "ball", "endPadId": "attach" }
+    ]
+}

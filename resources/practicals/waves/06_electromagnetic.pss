@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "radio",
+            "typeId": "WAV_PLANE",
+            "displayName": "Radio Waves (low freq)",
+            "position": { "x": 200, "y": 300 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 0.5, "amplitude": 0.8, "phase": 0.0, "width": 200.0 }
+        },
+        {
+            "id": "light",
+            "typeId": "WAV_PLANE",
+            "displayName": "Visible Light (high freq)",
+            "position": { "x": 200, "y": 700 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 4.0, "amplitude": 0.8, "phase": 0.0, "width": 200.0 }
+        },
+        {
+            "id": "absorber",
+            "typeId": "WAV_ABSORBER",
+            "displayName": "Absorber (Shield)",
+            "position": { "x": 800, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "radius": 80.0, "damping": 0.9 }
+        }
+    ],
+    "wires": []
+}

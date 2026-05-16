@@ -1,0 +1,67 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "vsrc",
+            "typeId": "ELEC_VSRC",
+            "displayName": "Battery (9 V)",
+            "position": { "x": 600, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 9.0, "internalResistance": 1.0 }
+        },
+        {
+            "id": "sw",
+            "typeId": "ELEC_SW",
+            "displayName": "Switch",
+            "position": { "x": 1000, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "closed": true }
+        },
+        {
+            "id": "led",
+            "typeId": "ELEC_LED",
+            "displayName": "LED",
+            "position": { "x": 1400, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "forwardVoltage": 2.0, "color": "red" }
+        },
+        {
+            "id": "res",
+            "typeId": "ELEC_RES",
+            "displayName": "Resistor (470 Ω)",
+            "position": { "x": 1800, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 470.0 }
+        },
+        {
+            "id": "gnd",
+            "typeId": "ELEC_GND",
+            "displayName": "Ground",
+            "position": { "x": 600, "y": 700 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": [
+        { "wireType": "signal", "startComponentId": "vsrc", "startPadId": "a", "endComponentId": "sw", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "sw", "startPadId": "b", "endComponentId": "led", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "led", "startPadId": "b", "endComponentId": "res", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res", "startPadId": "b", "endComponentId": "vsrc", "endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "gnd", "startPadId": "gnd", "endComponentId": "vsrc", "endPadId": "b" }
+    ]
+}

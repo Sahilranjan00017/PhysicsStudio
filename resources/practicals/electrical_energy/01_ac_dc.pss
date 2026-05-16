@@ -1,0 +1,103 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "ac_src",
+            "typeId": "ELEC_AC",
+            "displayName": "AC Source (240 V, 50 Hz)",
+            "position": { "x": 500, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 240.0, "frequency": 50.0, "internalResistance": 1.0 }
+        },
+        {
+            "id": "res_ac",
+            "typeId": "ELEC_RES",
+            "displayName": "Resistor AC (1000 Ω)",
+            "position": { "x": 900, "y": 300 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 1000.0 }
+        },
+        {
+            "id": "scope_ac",
+            "typeId": "ELEC_SCOPE",
+            "displayName": "Oscilloscope (AC)",
+            "position": { "x": 1300, "y": 300 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "timeDiv": 0.005, "voltDiv": 100.0 }
+        },
+        {
+            "id": "gnd_ac",
+            "typeId": "ELEC_GND",
+            "displayName": "Ground (AC circuit)",
+            "position": { "x": 500, "y": 550 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        },
+        {
+            "id": "dc_src",
+            "typeId": "ELEC_VSRC",
+            "displayName": "DC Source (12 V)",
+            "position": { "x": 500, "y": 900 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 12.0, "internalResistance": 1.0 }
+        },
+        {
+            "id": "res_dc",
+            "typeId": "ELEC_RES",
+            "displayName": "Resistor DC (1000 Ω)",
+            "position": { "x": 900, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 1000.0 }
+        },
+        {
+            "id": "scope_dc",
+            "typeId": "ELEC_SCOPE",
+            "displayName": "Oscilloscope (DC)",
+            "position": { "x": 1300, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "timeDiv": 0.005, "voltDiv": 10.0 }
+        },
+        {
+            "id": "gnd_dc",
+            "typeId": "ELEC_GND",
+            "displayName": "Ground (DC circuit)",
+            "position": { "x": 500, "y": 1050 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": [
+        { "wireType": "signal", "startComponentId": "ac_src", "startPadId": "a", "endComponentId": "res_ac", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res_ac", "startPadId": "b", "endComponentId": "scope_ac", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "scope_ac", "startPadId": "gnd", "endComponentId": "ac_src", "endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "gnd_ac", "startPadId": "gnd", "endComponentId": "ac_src", "endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "dc_src", "startPadId": "a", "endComponentId": "res_dc", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res_dc", "startPadId": "b", "endComponentId": "scope_dc", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "scope_dc", "startPadId": "gnd", "endComponentId": "dc_src", "endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "gnd_dc", "startPadId": "gnd", "endComponentId": "dc_src", "endPadId": "b" }
+    ]
+}

@@ -1,0 +1,50 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "source",
+            "typeId": "OPT_SRC",
+            "displayName": "Light Source",
+            "position": { "x": 300, "y": 350 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 45,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "numRays": 1, "spread": 0.0, "wavelength": 550.0, "intensity": 1.0 }
+        },
+        {
+            "id": "mirror1",
+            "typeId": "OPT_MIRROR",
+            "displayName": "Mirror 1",
+            "position": { "x": 700, "y": 500 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 200.0, "reflectivity": 1.0 }
+        },
+        {
+            "id": "mirror2",
+            "typeId": "OPT_MIRROR",
+            "displayName": "Mirror 2",
+            "position": { "x": 700, "y": 200 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 200.0, "reflectivity": 1.0 }
+        },
+        {
+            "id": "screen",
+            "typeId": "OPT_SCREEN",
+            "displayName": "Screen",
+            "position": { "x": 400, "y": 200 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 90,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 200.0 }
+        }
+    ],
+    "wires": []
+}

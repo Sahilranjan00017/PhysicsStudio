@@ -6,6 +6,7 @@
 #include <QTimer>
 
 class CanvasView;
+class ContentsPanel;
 class DataLogger;
 class GraphPanel;
 class OpticsOverlay;
@@ -46,6 +47,7 @@ private:
     void fitView();
 
     CanvasView*       canvasView       = nullptr;
+    ContentsPanel*    contentsPanel    = nullptr;
     OpticsOverlay*    opticsOverlay    = nullptr;
     WaveFieldOverlay* waveFieldOverlay = nullptr;
     PropertiesPanel*  propertiesPanel  = nullptr;

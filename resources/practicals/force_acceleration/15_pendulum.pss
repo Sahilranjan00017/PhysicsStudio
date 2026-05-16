@@ -1,0 +1,17 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "pendulum",
+            "typeId": "MOT_PENDULUM",
+            "displayName": "Pendulum",
+            "position": { "x": 1200, "y": 300 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 300.0, "damping": 0.05, "bobRadius": 25.0, "angle": 0.785 }
+        }
+    ],
+    "wires": []
+}

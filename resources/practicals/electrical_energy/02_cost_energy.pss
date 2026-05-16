@@ -1,0 +1,103 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "vsrc_high",
+            "typeId": "ELEC_VSRC",
+            "displayName": "Mains (230 V)",
+            "position": { "x": 500, "y": 400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 230.0, "internalResistance": 1.0 }
+        },
+        {
+            "id": "res_high",
+            "typeId": "ELEC_RES",
+            "displayName": "High Power Load (1000 Ω)",
+            "position": { "x": 1000, "y": 300 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 1000.0 }
+        },
+        {
+            "id": "amm_high",
+            "typeId": "ELEC_AMM",
+            "displayName": "Ammeter (High Power)",
+            "position": { "x": 1400, "y": 300 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "range": 1.0, "burdenResistance": 0.1 }
+        },
+        {
+            "id": "gnd_high",
+            "typeId": "ELEC_GND",
+            "displayName": "Ground",
+            "position": { "x": 500, "y": 550 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        },
+        {
+            "id": "vsrc_low",
+            "typeId": "ELEC_VSRC",
+            "displayName": "Low Voltage (5 V)",
+            "position": { "x": 500, "y": 900 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "voltage": 5.0, "internalResistance": 1.0 }
+        },
+        {
+            "id": "res_low",
+            "typeId": "ELEC_RES",
+            "displayName": "Low Power Load (1000 Ω)",
+            "position": { "x": 1000, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "resistance": 1000.0 }
+        },
+        {
+            "id": "amm_low",
+            "typeId": "ELEC_AMM",
+            "displayName": "Ammeter (Low Power)",
+            "position": { "x": 1400, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "range": 0.01, "burdenResistance": 0.1 }
+        },
+        {
+            "id": "gnd_low",
+            "typeId": "ELEC_GND",
+            "displayName": "Ground",
+            "position": { "x": 500, "y": 1050 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": [
+        { "wireType": "signal", "startComponentId": "vsrc_high", "startPadId": "a", "endComponentId": "res_high", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res_high", "startPadId": "b", "endComponentId": "amm_high", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "amm_high", "startPadId": "b", "endComponentId": "vsrc_high", "endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "gnd_high", "startPadId": "gnd", "endComponentId": "vsrc_high", "endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "vsrc_low", "startPadId": "a", "endComponentId": "res_low", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "res_low", "startPadId": "b", "endComponentId": "amm_low", "endPadId": "a" },
+        { "wireType": "signal", "startComponentId": "amm_low", "startPadId": "b", "endComponentId": "vsrc_low", "endPadId": "b" },
+        { "wireType": "signal", "startComponentId": "gnd_low", "startPadId": "gnd", "endComponentId": "vsrc_low", "endPadId": "b" }
+    ]
+}

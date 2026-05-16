@@ -1,0 +1,50 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "floor",
+            "typeId": "MOT_BLOCK",
+            "displayName": "Floor",
+            "position": { "x": 1200, "y": 1400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 0.0, "halfW": 1100.0, "halfH": 20.0, "fixed": true, "restitution": 0.5, "friction": 0.3 }
+        },
+        {
+            "id": "ball1",
+            "typeId": "MOT_BALL",
+            "displayName": "Ball 1 (Moving)",
+            "position": { "x": 400, "y": 1350 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 28.0, "restitution": 1.0, "friction": 0.0, "airDrag": 0.0, "velocityX": 250.0, "velocityY": 0.0 }
+        },
+        {
+            "id": "ball2",
+            "typeId": "MOT_BALL",
+            "displayName": "Ball 2 (Stationary)",
+            "position": { "x": 900, "y": 1350 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 28.0, "restitution": 1.0, "friction": 0.0, "airDrag": 0.0, "velocityX": 0.0, "velocityY": 0.0 }
+        },
+        {
+            "id": "ball3",
+            "typeId": "MOT_BALL",
+            "displayName": "Ball 3 (Stationary)",
+            "position": { "x": 1400, "y": 1350 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 28.0, "restitution": 1.0, "friction": 0.0, "airDrag": 0.0, "velocityX": 0.0, "velocityY": 0.0 }
+        }
+    ],
+    "wires": []
+}

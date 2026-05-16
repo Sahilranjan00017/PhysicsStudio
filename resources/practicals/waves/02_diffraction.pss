@@ -1,0 +1,61 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "plane_src",
+            "typeId": "WAV_PLANE",
+            "displayName": "Plane Wave Source",
+            "position": { "x": 400, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "frequency": 2.0, "amplitude": 1.0, "width": 400.0 }
+        },
+        {
+            "id": "barrier",
+            "typeId": "WAV_BARRIER",
+            "displayName": "Single Slit Barrier",
+            "position": { "x": 1100, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "barrierLength": 400.0, "slitWidth": 30.0, "slitSeparation": 0.0, "numSlits": 1 }
+        },
+        {
+            "id": "detector1",
+            "typeId": "WAV_DET",
+            "displayName": "Detector (Centre)",
+            "position": { "x": 1800, "y": 800 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        },
+        {
+            "id": "detector2",
+            "typeId": "WAV_DET",
+            "displayName": "Detector (Above)",
+            "position": { "x": 1800, "y": 600 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        },
+        {
+            "id": "detector3",
+            "typeId": "WAV_DET",
+            "displayName": "Detector (Below)",
+            "position": { "x": 1800, "y": 1000 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": {}
+        }
+    ],
+    "wires": []
+}

@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "floor",
+            "typeId": "MOT_BLOCK",
+            "displayName": "Floor",
+            "position": { "x": 1200, "y": 1400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 0.0, "halfW": 1100.0, "halfH": 20.0, "fixed": true, "restitution": 0.0, "friction": 0.3 }
+        },
+        {
+            "id": "ball_fast",
+            "typeId": "MOT_BALL",
+            "displayName": "Fast Ball (300 units/s)",
+            "position": { "x": 400, "y": 1350 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 30.0, "restitution": 0.0, "friction": 0.3, "airDrag": 0.0, "velocityX": 300.0, "velocityY": 0.0 }
+        },
+        {
+            "id": "ball_slow",
+            "typeId": "MOT_BALL",
+            "displayName": "Slow Ball (150 units/s)",
+            "position": { "x": 400, "y": 1200 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 1.0, "radius": 30.0, "restitution": 0.0, "friction": 0.3, "airDrag": 0.0, "velocityX": 150.0, "velocityY": 0.0 }
+        }
+    ],
+    "wires": []
+}

@@ -1,0 +1,39 @@
+{
+    "pss_version": "1.0",
+    "components": [
+        {
+            "id": "floor",
+            "typeId": "MOT_BLOCK",
+            "displayName": "Floor",
+            "position": { "x": 1200, "y": 1400 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": 0,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 0.0, "halfW": 1100.0, "halfH": 20.0, "fixed": true, "restitution": 0.5, "friction": 0.3 }
+        },
+        {
+            "id": "ramp",
+            "typeId": "MOT_RAMP",
+            "displayName": "Ramp (30°)",
+            "position": { "x": 900, "y": 1200 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": -30,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "length": 400.0, "restitution": 0.3 }
+        },
+        {
+            "id": "block",
+            "typeId": "MOT_BLOCK",
+            "displayName": "Block (5 kg)",
+            "position": { "x": 850, "y": 1070 },
+            "locked": { "position": false, "size": false, "orientation": false, "properties": false },
+            "rotation": -30,
+            "destructible": false,
+            "destroyed": false,
+            "properties": { "mass": 5.0, "halfW": 40.0, "halfH": 25.0, "fixed": false, "restitution": 0.2, "friction": 0.4 }
+        }
+    ],
+    "wires": []
+}
