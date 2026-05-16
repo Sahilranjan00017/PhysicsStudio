@@ -1,5 +1,10 @@
 <RCC>
-    <qresource prefix="/examples">
+    <!-- Single root prefix — avoids the doubled-path bug.
+         Path formula: :/<prefix>/<file> → with prefix="/" this gives
+         :/examples/foo.pss  and  :/practicals/ch/foo.pss  as expected. -->
+    <qresource prefix="/">
+
+        <!-- ── Built-in examples (File → Open Example menu) ──────────────── -->
         <file>examples/electronics_divider.pss</file>
         <file>examples/electronics_rc_filter.pss</file>
         <file>examples/electronics_transistor.pss</file>
@@ -8,15 +13,13 @@
         <file>examples/optics_lens.pss</file>
         <file>examples/waves_interference.pss</file>
         <file>examples/waves_ripple.pss</file>
-    </qresource>
 
-    <qresource prefix="/practicals">
-        <!-- Chapter 1: Describing Motion (3) -->
+        <!-- ── Chapter 1: Describing Motion (3) ──────────────────────────── -->
         <file>practicals/describing_motion/01_distance_time.pss</file>
         <file>practicals/describing_motion/02_velocity_time.pss</file>
         <file>practicals/describing_motion/03_acceleration.pss</file>
 
-        <!-- Chapter 2: Force & Acceleration (15) -->
+        <!-- ── Chapter 2: Force & Acceleration (15) ──────────────────────── -->
         <file>practicals/force_acceleration/01_circular_motion.pss</file>
         <file>practicals/force_acceleration/02_circular_radius.pss</file>
         <file>practicals/force_acceleration/03_circular_mass.pss</file>
@@ -33,7 +36,7 @@
         <file>practicals/force_acceleration/14_friction.pss</file>
         <file>practicals/force_acceleration/15_pendulum.pss</file>
 
-        <!-- Chapter 3: Energy & Motion (9) -->
+        <!-- ── Chapter 3: Energy & Motion (9) ───────────────────────────── -->
         <file>practicals/energy_motion/01_momentum_definition.pss</file>
         <file>practicals/energy_motion/02_momentum_conservation.pss</file>
         <file>practicals/energy_motion/03_momentum_change.pss</file>
@@ -44,7 +47,7 @@
         <file>practicals/energy_motion/08_collisions.pss</file>
         <file>practicals/energy_motion/09_elastic_inelastic.pss</file>
 
-        <!-- Chapter 4: Circuits (8) -->
+        <!-- ── Chapter 4: Circuits (8) ───────────────────────────────────── -->
         <file>practicals/circuits/01_basic_circuit.pss</file>
         <file>practicals/circuits/02_current_voltage.pss</file>
         <file>practicals/circuits/03_ldr_thermistor.pss</file>
@@ -54,7 +57,7 @@
         <file>practicals/circuits/07_series_lamps.pss</file>
         <file>practicals/circuits/08_series_batteries.pss</file>
 
-        <!-- Chapter 5: Electrical Energy (7) -->
+        <!-- ── Chapter 5: Electrical Energy (7) ─────────────────────────── -->
         <file>practicals/electrical_energy/01_ac_dc.pss</file>
         <file>practicals/electrical_energy/02_cost_energy.pss</file>
         <file>practicals/electrical_energy/03_electric_power.pss</file>
@@ -63,7 +66,7 @@
         <file>practicals/electrical_energy/06_low_power.pss</file>
         <file>practicals/electrical_energy/07_transformer.pss</file>
 
-        <!-- Chapter 6: Waves (8) -->
+        <!-- ── Chapter 6: Waves (8) ──────────────────────────────────────── -->
         <file>practicals/waves/01_absorption.pss</file>
         <file>practicals/waves/02_diffraction.pss</file>
         <file>practicals/waves/03_doppler_effect.pss</file>
@@ -73,7 +76,7 @@
         <file>practicals/waves/07_speed_sound.pss</file>
         <file>practicals/waves/08_ultrasound.pss</file>
 
-        <!-- Chapter 7: Optics (8) -->
+        <!-- ── Chapter 7: Optics (8) ─────────────────────────────────────── -->
         <file>practicals/optics/01_angle_reflection.pss</file>
         <file>practicals/optics/02_convex_mirror.pss</file>
         <file>practicals/optics/03_mirror_reflection.pss</file>
@@ -82,5 +85,6 @@
         <file>practicals/optics/06_magnification.pss</file>
         <file>practicals/optics/07_mirror_applications.pss</file>
         <file>practicals/optics/08_telescope.pss</file>
+
     </qresource>
 </RCC>
